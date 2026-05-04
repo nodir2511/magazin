@@ -121,8 +121,10 @@ function range(period) {
         return [d.toISOString().slice(0, 10), end];
     }
 
-    const from = document.getElementById('dateFrom') ? .value || '1900-01-01';
-    const to = document.getElementById('dateTo') ? .value || end;
+    const dateFrom = document.getElementById('dateFrom');
+    const dateTo = document.getElementById('dateTo');
+    const from = dateFrom ? dateFrom.value || '1900-01-01' : '1900-01-01';
+    const to = dateTo ? dateTo.value || end : end;
     return [from, to];
 }
 
@@ -189,7 +191,7 @@ function fileToData(file) {
 }
 
 function escapeHtml(value) {
-    return String(value ? ? '')
+    return String(value == null ? '' : value)
         .replace(/&/g, '&amp;')
         .replace(/"/g, '&quot;')
         .replace(/</g, '&lt;')
@@ -197,7 +199,7 @@ function escapeHtml(value) {
 }
 
 function escapeJsString(value) {
-    return String(value ? ? '').replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+    return String(value == null ? '' : value).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
 
 function productCards(mode, query = '') {
@@ -228,7 +230,8 @@ function selectProduct(mode, sku) {
 function openProductModal() {
   productModalOpen = true;
   renderArrived();
-  document.querySelector('#newProductModal input[name="name"]')?.focus();
+  const nameInput = document.querySelector('#newProductModal input[name="name"]');
+  if (nameInput) nameInput.focus();
 }
 
 function closeProductModal() {
@@ -239,7 +242,8 @@ function closeProductModal() {
 function openActionModal(mode, sku) {
   actionModal = { mode, sku };
   render();
-  document.querySelector('#actionModal input[name="qty"]')?.focus();
+  const qtyInput = document.querySelector('#actionModal input[name="qty"]');
+  if (qtyInput) qtyInput.focus();
 }
 
 function closeActionModal() {
@@ -323,7 +327,8 @@ function actionModalMarkup(mode) {
 }
 
 function productName(sku) {
-  return db.products.find(p => p.sku === sku)?.name || sku;
+  const product = db.products.find(p => p.sku === sku);
+  return product ? product.name || sku : sku;
 }
 
 function numberPrompt(label, value) {
@@ -786,7 +791,8 @@ function setPeriod(p) {
 }
 
 function openTab(id) {
-  document.querySelector(`[data-id="${id}"]`)?.click();
+  const tab = document.querySelector(`[data-id="${id}"]`);
+  if (tab) tab.click();
 }
 
 document.addEventListener('keydown', e => {

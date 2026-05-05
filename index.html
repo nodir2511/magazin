@@ -4,28 +4,63 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Учёт магазина</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co; object-src 'none'; base-uri 'self'; frame-ancestors 'none'">
+    <title>Учет магазина</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
-    <header>
-        <h1>Учёт магазина</h1>
-        <p>Товар пришёл (Бор омад) • Продал (Фурӯхт) • Возврат (Бозгашт) • Расход (Хароҷот)</p>
-    </header>
+    <section id="authPage" class="authPage">
+        <form id="authForm" class="authCard">
+            <h1>Вход в magazin</h1>
+            <p>Войдите в аккаунт. Данные общие, а история покажет, кто внёс изменение.</p>
+            <input name="email" type="email" autocomplete="email" placeholder="Email" required>
+            <input name="password" type="password" autocomplete="current-password" placeholder="Пароль" required minlength="6">
+            <button type="submit">Войти</button>
+        </form>
+    </section>
 
-    <nav id="nav"></nav>
+    <div id="appShell" class="appShell hidden">
+        <header>
+            <h1>Учёт магазина</h1>
+            <p>Товар пришёл (Бор омад) • Продал (Фурӯхт) • Возврат (Бозгашт) • Расход (Хароҷот)</p>
+            <div class="headerActions">
+                <span id="userEmail" class="userEmail"></span>
+                <span id="syncStatus" class="syncStatus local">Локально</span>
+                <button id="createUserButton" class="userCreateBtn hidden" type="button" onclick="openUserModal()">Создать пользователя</button>
+                <button class="logoutBtn" type="button" onclick="logoutUser()">Выйти</button>
+            </div>
+        </header>
 
-    <main>
-        <section id="dashboard" class="page active"></section>
-        <section id="arrived" class="page"></section>
-        <section id="sales" class="page"></section>
-        <section id="returns" class="page"></section>
-        <section id="expenses" class="page"></section>
-        <section id="stock" class="page"></section>
-        <section id="report" class="page"></section>
-    </main>
+        <nav id="nav"></nav>
 
+        <main>
+            <section id="dashboard" class="page active"></section>
+            <section id="arrived" class="page"></section>
+            <section id="sales" class="page"></section>
+            <section id="returns" class="page"></section>
+            <section id="expenses" class="page"></section>
+            <section id="stock" class="page"></section>
+            <section id="report" class="page"></section>
+            <section id="history" class="page"></section>
+        </main>
+
+        <div id="userModal" class="modal" onclick="if (event.target === this) closeUserModal()">
+            <div class="modalPanel userModalPanel" role="dialog" aria-modal="true" aria-labelledby="createUserTitle">
+                <div class="modalHeader">
+                    <h3 id="createUserTitle">Создать пользователя</h3>
+                    <button class="closeBtn" type="button" onclick="closeUserModal()" aria-label="Close">x</button>
+                </div>
+                <form id="createUserForm" class="form modalForm userForm">
+                    <input name="email" type="email" autocomplete="off" placeholder="Email нового пользователя" required>
+                    <input name="password" type="password" autocomplete="new-password" placeholder="Пароль" required minlength="6">
+                    <button class="actionSubmit createAction" type="submit">Создать пользователя</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="config.js"></script>
     <script src="app.js"></script>
 </body>
 

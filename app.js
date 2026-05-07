@@ -85,7 +85,8 @@ function normalizeDb(value) {
             date: cleanValue(x && x.date, 40),
             dateKey: cleanValue(x && x.dateKey, 10),
             category: cleanValue(x && x.category, 120),
-            amount: cleanNumber(x && x.amount)
+            amount: cleanNumber(x && x.amount),
+            comment: cleanValue(x && x.comment, 300)
         })) : []
     };
 }
@@ -1236,10 +1237,13 @@ function editExpense(id) {
   if (category === null) return;
   const amount = numberPrompt('Сумма', item.amount);
   if (amount === null) return;
+  const comment = prompt('Комментарий', item.comment || '');
+  if (comment === null) return;
 
   item.category = category;
   item.amount = amount;
-  save('Изменение расхода', `${category}: ${money(amount)}`);
+  item.comment = comment.trim();
+  save('Изменение расхода', `${category}: ${money(amount)}${item.comment ? `, ${item.comment}` : ''}`);
 }
 
 function arrivalsTable() {
@@ -1310,11 +1314,12 @@ function expensesTable() {
   return `
     <h3>История расходов</h3>
     <table>
-      <tr><th>Дата</th><th>Категория</th><th>Сумма</th><th></th></tr>
+      <tr><th>Дата</th><th>Категория</th><th>Комментарий</th><th>Сумма</th><th></th></tr>
       ${db.expenses.map(x => `
         <tr>
           <td>${escapeHtml(x.date)}</td>
           <td>${escapeHtml(x.category)}</td>
+          <td>${escapeHtml(x.comment || '')}</td>
           <td>${money(x.amount)}</td>
           <td class="rowActions">
             <button data-id="${escapeHtml(x.id)}" onclick="editExpense(Number(this.dataset.id))">Изм.</button>
@@ -1490,6 +1495,7 @@ function renderExpenses() {
         <option>Прочее (Дигар)</option>
       </select>
       <input name="amount" type="number" placeholder="Сумма (Маблағ)" required>
+      <input name="comment" placeholder="Комментарий к расходу">
       <button>Сохранить (Нигоҳ доштан)</button>
     </form>
     ${expensesTable()}
@@ -1505,8 +1511,9 @@ function renderExpenses() {
       return;
     }
 
-    db.expenses.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), category: f.category, amount: +f.amount });
-    save('Расход', `${f.category}: ${money(+f.amount)}`);
+    const comment = String(f.comment || '').trim();
+    db.expenses.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), category: f.category, amount: +f.amount, comment });
+    save('Расход', `${f.category}: ${money(+f.amount)}${comment ? `, ${comment}` : ''}`);
   };
 }
 

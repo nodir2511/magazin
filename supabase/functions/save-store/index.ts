@@ -150,6 +150,7 @@ function normalizeDb(value: unknown) {
           dateKey: cleanText(row.dateKey, 10),
           category: cleanText(row.category, 120),
           amount: cleanNumber(row.amount),
+          comment: cleanText(row.comment, 300),
         };
       })
       : [],

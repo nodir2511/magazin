@@ -1528,11 +1528,18 @@ function renderStock() {
               <div class="muted">Остаток (Боқимонда): ${stockOf(editProduct.sku)}</div>
             </div>
           </div>
-          <form class="form modalForm userForm" id="productEditForm">
-            <input name="name" value="${escapeHtml(editProduct.name)}" placeholder="Название (Ном)" required>
-            <input name="category" value="${escapeHtml(editProduct.category || '')}" placeholder="Категория (Категория)">
-            <input name="buyPrice" type="number" value="${escapeHtml(editProduct.buyPrice || '')}" placeholder="Цена закупки (Нархи харид)" required>
-            <label class="fileField">Добавить или заменить фото
+          <form class="form modalForm productEditForm" id="productEditForm">
+            <label class="fieldLabel">Название товара
+              <input name="name" value="${escapeHtml(editProduct.name)}" placeholder="Например: Футболка" required>
+            </label>
+            <label class="fieldLabel">Категория
+              <input name="category" value="${escapeHtml(editProduct.category || '')}" placeholder="Например: Одежда">
+            </label>
+            <label class="fieldLabel">Цена закупки
+              <input name="buyPrice" type="number" value="${escapeHtml(editProduct.buyPrice || '')}" placeholder="Например: 100" required>
+            </label>
+            <label class="fieldLabel fileField">Фото товара
+              <span>Можно добавить сейчас или заменить старое фото</span>
               <input name="photo" type="file" accept="image/*">
             </label>
             <button class="actionSubmit createAction" type="submit">Сохранить товар</button>

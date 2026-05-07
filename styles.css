@@ -375,6 +375,28 @@ select {
     border-radius: 10px;
 }
 
+.fieldLabel {
+    display: grid;
+    gap: 8px;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.fieldLabel span {
+    color: #6b7280;
+    font-size: 12px;
+    font-weight: 400;
+}
+
+.fieldLabel input {
+    width: 100%;
+}
+
+.productEditForm {
+    grid-template-columns: 1fr;
+}
+
 .modalForm .actionSubmit {
     grid-column: 1 / -1;
     min-height: 52px;

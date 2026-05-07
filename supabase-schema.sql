@@ -27,6 +27,13 @@ insert into storage.buckets (id, name, public)
 values ('product-photos', 'product-photos', false)
 on conflict (id) do nothing;
 
+update storage.buckets
+set
+    public = false,
+    file_size_limit = 1048576,
+    allowed_mime_types = array['image/webp', 'image/jpeg', 'image/png']
+where id = 'product-photos';
+
 alter table public.store_state enable row level security;
 alter table public.user_roles enable row level security;
 alter table public.store_changes enable row level security;
@@ -46,7 +53,14 @@ create policy "store_state_select"
 on public.store_state
 for select
 to authenticated
-using (id = 'main');
+using (
+    id = 'main'
+    and exists (
+        select 1 from public.user_roles
+        where user_id = auth.uid()
+        and role in ('admin', 'manager')
+    )
+);
 
 create policy "user_roles_select_own"
 on public.user_roles
@@ -58,13 +72,26 @@ create policy "store_changes_select"
 on public.store_changes
 for select
 to authenticated
-using (true);
+using (
+    exists (
+        select 1 from public.user_roles
+        where user_id = auth.uid()
+        and role in ('admin', 'manager')
+    )
+);
 
 create policy "product_photos_select"
 on storage.objects
 for select
 to authenticated
-using (bucket_id = 'product-photos');
+using (
+    bucket_id = 'product-photos'
+    and exists (
+        select 1 from public.user_roles
+        where user_id = auth.uid()
+        and role in ('admin', 'manager')
+    )
+);
 
 create policy "product_photos_insert"
 on storage.objects
@@ -72,6 +99,7 @@ for insert
 to authenticated
 with check (
     bucket_id = 'product-photos'
+    and name like auth.uid()::text || '/%.webp'
     and exists (
         select 1 from public.user_roles
         where user_id = auth.uid()
@@ -83,9 +111,18 @@ create policy "product_photos_update"
 on storage.objects
 for update
 to authenticated
-using (bucket_id = 'product-photos')
+using (
+    bucket_id = 'product-photos'
+    and name like auth.uid()::text || '/%.webp'
+    and exists (
+        select 1 from public.user_roles
+        where user_id = auth.uid()
+        and role in ('admin', 'manager')
+    )
+)
 with check (
     bucket_id = 'product-photos'
+    and name like auth.uid()::text || '/%.webp'
     and exists (
         select 1 from public.user_roles
         where user_id = auth.uid()

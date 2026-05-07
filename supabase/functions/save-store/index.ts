@@ -16,6 +16,11 @@ serve(async (req) => {
     return json({ error: "Method not allowed" }, 405);
   }
 
+  const contentLength = Number(req.headers.get("content-length") || 0);
+  if (contentLength > 2_000_000) {
+    return json({ error: "Payload is too large" }, 413);
+  }
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -84,7 +89,10 @@ function normalizeDb(value: unknown) {
     ? data.products.map((item) => {
       const product = item && typeof item === "object" ? item as Record<string, unknown> : {};
       return {
-        ...product,
+        sku: cleanText(product.sku, 80),
+        name: cleanText(product.name, 160),
+        category: cleanText(product.category, 120),
+        buyPrice: cleanNumber(product.buyPrice),
         photo: isPhotoPath(product.photo) ? product.photo : "",
       };
     })
@@ -92,10 +100,60 @@ function normalizeDb(value: unknown) {
 
   return {
     products,
-    arrivals: Array.isArray(data.arrivals) ? data.arrivals : [],
-    sales: Array.isArray(data.sales) ? data.sales : [],
-    returns: Array.isArray(data.returns) ? data.returns : [],
-    expenses: Array.isArray(data.expenses) ? data.expenses : [],
+    arrivals: Array.isArray(data.arrivals)
+      ? data.arrivals.map((item) => {
+        const row = item && typeof item === "object" ? item as Record<string, unknown> : {};
+        return {
+          id: cleanNumber(row.id),
+          date: cleanText(row.date, 40),
+          dateKey: cleanText(row.dateKey, 10),
+          sku: cleanText(row.sku, 80),
+          qty: cleanNumber(row.qty),
+          buyPrice: cleanNumber(row.buyPrice),
+        };
+      })
+      : [],
+    sales: Array.isArray(data.sales)
+      ? data.sales.map((item) => {
+        const row = item && typeof item === "object" ? item as Record<string, unknown> : {};
+        return {
+          id: cleanNumber(row.id),
+          date: cleanText(row.date, 40),
+          dateKey: cleanText(row.dateKey, 10),
+          sku: cleanText(row.sku, 80),
+          qty: cleanNumber(row.qty),
+          sellPrice: cleanNumber(row.sellPrice),
+          payment: cleanText(row.payment, 40),
+          costPrice: cleanNumber(row.costPrice),
+        };
+      })
+      : [],
+    returns: Array.isArray(data.returns)
+      ? data.returns.map((item) => {
+        const row = item && typeof item === "object" ? item as Record<string, unknown> : {};
+        return {
+          id: cleanNumber(row.id),
+          date: cleanText(row.date, 40),
+          dateKey: cleanText(row.dateKey, 10),
+          sku: cleanText(row.sku, 80),
+          qty: cleanNumber(row.qty),
+          refundAmount: cleanNumber(row.refundAmount),
+          costPrice: cleanNumber(row.costPrice),
+        };
+      })
+      : [],
+    expenses: Array.isArray(data.expenses)
+      ? data.expenses.map((item) => {
+        const row = item && typeof item === "object" ? item as Record<string, unknown> : {};
+        return {
+          id: cleanNumber(row.id),
+          date: cleanText(row.date, 40),
+          dateKey: cleanText(row.dateKey, 10),
+          category: cleanText(row.category, 120),
+          amount: cleanNumber(row.amount),
+        };
+      })
+      : [],
   };
 }
 
@@ -105,6 +163,11 @@ function isPhotoPath(value: unknown) {
 
 function cleanText(value: unknown, limit: number) {
   return String(value || "").slice(0, limit);
+}
+
+function cleanNumber(value: unknown) {
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : 0;
 }
 
 function json(body: unknown, status = 200) {

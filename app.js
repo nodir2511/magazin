@@ -43,17 +43,59 @@ function readLocalDb() {
 function normalizeDb(value) {
     const data = value && typeof value === 'object' ? value : {};
     const products = Array.isArray(data.products) ? data.products.map(p => ({
-        ...p,
+        sku: cleanValue(p && p.sku, 80),
+        name: cleanValue(p && p.name, 160),
+        category: cleanValue(p && p.category, 120),
+        buyPrice: cleanNumber(p && p.buyPrice),
         photo: isPhotoPath(p && p.photo) ? p.photo : ''
     })) : [];
 
     return {
         products,
-        arrivals: Array.isArray(data.arrivals) ? data.arrivals : [],
-        sales: Array.isArray(data.sales) ? data.sales : [],
-        returns: Array.isArray(data.returns) ? data.returns : [],
-        expenses: Array.isArray(data.expenses) ? data.expenses : []
+        arrivals: Array.isArray(data.arrivals) ? data.arrivals.map(x => ({
+            id: cleanNumber(x && x.id),
+            date: cleanValue(x && x.date, 40),
+            dateKey: cleanValue(x && x.dateKey, 10),
+            sku: cleanValue(x && x.sku, 80),
+            qty: cleanNumber(x && x.qty),
+            buyPrice: cleanNumber(x && x.buyPrice)
+        })) : [],
+        sales: Array.isArray(data.sales) ? data.sales.map(x => ({
+            id: cleanNumber(x && x.id),
+            date: cleanValue(x && x.date, 40),
+            dateKey: cleanValue(x && x.dateKey, 10),
+            sku: cleanValue(x && x.sku, 80),
+            qty: cleanNumber(x && x.qty),
+            sellPrice: cleanNumber(x && x.sellPrice),
+            payment: cleanValue(x && x.payment, 40),
+            costPrice: cleanNumber(x && x.costPrice)
+        })) : [],
+        returns: Array.isArray(data.returns) ? data.returns.map(x => ({
+            id: cleanNumber(x && x.id),
+            date: cleanValue(x && x.date, 40),
+            dateKey: cleanValue(x && x.dateKey, 10),
+            sku: cleanValue(x && x.sku, 80),
+            qty: cleanNumber(x && x.qty),
+            refundAmount: cleanNumber(x && x.refundAmount),
+            costPrice: cleanNumber(x && x.costPrice)
+        })) : [],
+        expenses: Array.isArray(data.expenses) ? data.expenses.map(x => ({
+            id: cleanNumber(x && x.id),
+            date: cleanValue(x && x.date, 40),
+            dateKey: cleanValue(x && x.dateKey, 10),
+            category: cleanValue(x && x.category, 120),
+            amount: cleanNumber(x && x.amount)
+        })) : []
     };
+}
+
+function cleanValue(value, limit = 200) {
+    return String(value == null ? '' : value).slice(0, limit);
+}
+
+function cleanNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) && number >= 0 ? number : 0;
 }
 
 function hasDbData(value) {
@@ -883,7 +925,7 @@ function productCards(mode, query = '') {
     return db.products
         .filter(p => (p.name + p.category + p.sku).toLowerCase().includes(query))
         .map(p => `
-      <div class="product" onclick="openActionModal('${mode}','${escapeJsString(p.sku)}')">
+      <div class="product" data-mode="${escapeHtml(mode)}" data-sku="${escapeHtml(p.sku)}" onclick="selectProductFromCard(this)">
         <div class="photo">${photoMarkup(p.photo)}</div>
         <h4>${escapeHtml(p.name)}</h4>
         <div class="muted">${escapeHtml(p.category || '')}</div>
@@ -900,6 +942,10 @@ function setSearch(mode, value) {
 
 function selectProduct(mode, sku) {
   openActionModal(mode, sku);
+}
+
+function selectProductFromCard(card) {
+  openActionModal(card.dataset.mode || '', card.dataset.sku || '');
 }
 
 function openProductModal() {
@@ -947,7 +993,7 @@ function actionModalMarkup(mode) {
     fields = `
       <input name="sku" readonly value="${escapeHtml(product.sku)}" placeholder="SKU">
       <input name="qty" type="number" placeholder="Количество (Миқдор)" required>
-      <input name="buyPrice" type="number" value="${product.buyPrice || ''}" placeholder="Цена закупки (Нархи харид)" required>
+      <input name="buyPrice" type="number" value="${escapeHtml(product.buyPrice || '')}" placeholder="Цена закупки (Нархи харид)" required>
       <button class="actionSubmit arriveAction">Добавить (Илова кардан)</button>
     `;
   }
@@ -1153,11 +1199,11 @@ function arrivalsTable() {
         <tr>
           <td>${escapeHtml(x.date)}</td>
           <td>${escapeHtml(productName(x.sku))}</td>
-          <td>${x.qty}</td>
+          <td>${escapeHtml(x.qty)}</td>
           <td>${money(x.buyPrice)}</td>
           <td class="rowActions">
-            <button onclick="editArrival(${x.id})">Изм.</button>
-            <button onclick="deleteRecord('arrivals', ${x.id})">Удалить</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="editArrival(Number(this.dataset.id))">Изм.</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('arrivals', Number(this.dataset.id))">Удалить</button>
           </td>
         </tr>
       `).join('')}
@@ -1174,12 +1220,12 @@ function salesTable() {
         <tr>
           <td>${escapeHtml(x.date)}</td>
           <td>${escapeHtml(productName(x.sku))}</td>
-          <td>${x.qty}</td>
+          <td>${escapeHtml(x.qty)}</td>
           <td>${money(x.sellPrice)}</td>
           <td>${escapeHtml(x.payment || '')}</td>
           <td class="rowActions">
-            <button onclick="editSale(${x.id})">Изм.</button>
-            <button onclick="deleteRecord('sales', ${x.id})">Удалить</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="editSale(Number(this.dataset.id))">Изм.</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('sales', Number(this.dataset.id))">Удалить</button>
           </td>
         </tr>
       `).join('')}
@@ -1196,11 +1242,11 @@ function returnsTable() {
         <tr>
           <td>${escapeHtml(x.date)}</td>
           <td>${escapeHtml(productName(x.sku))}</td>
-          <td>${x.qty}</td>
+          <td>${escapeHtml(x.qty)}</td>
           <td>${money(x.refundAmount)}</td>
           <td class="rowActions">
-            <button onclick="editReturn(${x.id})">Изм.</button>
-            <button onclick="deleteRecord('returns', ${x.id})">Удалить</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="editReturn(Number(this.dataset.id))">Изм.</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('returns', Number(this.dataset.id))">Удалить</button>
           </td>
         </tr>
       `).join('')}
@@ -1219,8 +1265,8 @@ function expensesTable() {
           <td>${escapeHtml(x.category)}</td>
           <td>${money(x.amount)}</td>
           <td class="rowActions">
-            <button onclick="editExpense(${x.id})">Изм.</button>
-            <button onclick="deleteRecord('expenses', ${x.id})">Удалить</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="editExpense(Number(this.dataset.id))">Изм.</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('expenses', Number(this.dataset.id))">Удалить</button>
           </td>
         </tr>
       `).join('')}

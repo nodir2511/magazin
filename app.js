@@ -48,7 +48,6 @@ function normalizeDb(value) {
         sku: cleanValue(p && p.sku, 80),
         name: cleanValue(p && p.name, 160),
         category: cleanValue(p && p.category, 120),
-        buyPrice: cleanNumber(p && p.buyPrice),
         photo: isPhotoPath(p && p.photo) ? p.photo : ''
     })) : [];
 
@@ -180,6 +179,12 @@ function avgCost(sku) {
     return qty ? sum / qty : 0;
 }
 
+function lastBuyPrice(sku) {
+    const arrivals = db.arrivals.filter(x => x.sku === sku && Number.isFinite(Number(x.buyPrice)));
+    const lastArrival = arrivals[arrivals.length - 1];
+    return lastArrival ? Number(lastArrival.buyPrice) : 0;
+}
+
 function saleCost(x) {
     return x.qty * (Number(x.costPrice) || avgCost(x.sku));
 }
@@ -193,6 +198,17 @@ function avgSoldCost(sku) {
 
 function returnCost(x) {
     return x.qty * (Number(x.costPrice) || avgSoldCost(x.sku));
+}
+
+function inventoryTotals() {
+    return db.products.reduce((total, product) => {
+        const qty = stockOf(product.sku);
+        if (qty <= 0) return total;
+
+        total.qty += qty;
+        total.value += qty * avgCost(product.sku);
+        return total;
+    }, { qty: 0, value: 0 });
 }
 
 function navRender() {
@@ -1027,7 +1043,7 @@ function actionModalMarkup(mode) {
     fields = `
       <input name="sku" readonly value="${escapeHtml(product.sku)}" placeholder="SKU">
       <input name="qty" type="number" placeholder="Количество (Миқдор)" required>
-      <input name="buyPrice" type="number" value="${escapeHtml(product.buyPrice || '')}" placeholder="Цена закупки (Нархи харид)" required>
+      <input name="buyPrice" type="number" value="${escapeHtml(lastBuyPrice(product.sku) || '')}" placeholder="Новая цена закупки (Нархи харид)" required>
       <button class="actionSubmit arriveAction">Добавить (Илова кардан)</button>
     `;
   }
@@ -1375,7 +1391,7 @@ function renderArrived() {
 
     const photo = await fileToData(fd.get('photo'));
 
-    db.products.push({ sku, name: f.name, category: f.category, buyPrice: +f.buyPrice, photo });
+    db.products.push({ sku, name: f.name, category: f.category, photo });
     db.arrivals.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku, qty: +f.qty, buyPrice: +f.buyPrice });
     productModalOpen = false;
     save('Создание товара', `${f.name}: приход ${+f.qty} шт., закуп ${money(+f.buyPrice)}`);
@@ -1546,9 +1562,6 @@ function renderStock() {
             <label class="fieldLabel">Категория
               <input name="category" value="${escapeHtml(editProduct.category || '')}" placeholder="Например: Одежда">
             </label>
-            <label class="fieldLabel">Цена закупки
-              <input name="buyPrice" type="number" value="${escapeHtml(editProduct.buyPrice || '')}" placeholder="Например: 100" required>
-            </label>
             <label class="fieldLabel fileField">Фото товара
               <span>Можно добавить сейчас или заменить старое фото</span>
               <input name="photo" type="file" accept="image/*">
@@ -1570,10 +1583,9 @@ function renderStock() {
     const fd = new FormData(e.target);
     const name = String(fd.get('name') || '').trim();
     const category = String(fd.get('category') || '').trim();
-    const buyPrice = Number(fd.get('buyPrice'));
 
-    if (!name || !Number.isFinite(buyPrice) || buyPrice < 0) {
-      showNotice('Введите название и корректную цену');
+    if (!name) {
+      showNotice('Введите название товара');
       return;
     }
 
@@ -1583,7 +1595,6 @@ function renderStock() {
 
     product.name = name;
     product.category = category;
-    product.buyPrice = buyPrice;
     if (newPhoto) product.photo = newPhoto;
 
     productEditSku = '';
@@ -1593,6 +1604,7 @@ function renderStock() {
 
 function renderReport() {
   const t = totals(selectedPeriod);
+  const inventory = inventoryTotals();
 
   report.innerHTML = `
     <h2>Отчёт (Ҳисобот)</h2>
@@ -1619,6 +1631,8 @@ function renderReport() {
       <div class="card"><span>Чистая прибыль (Фоидаи соф)</span><b>${money(t.net)}</b></div>
       <div class="card"><span>Продано (Фурӯхта)</span><b>${t.qty}</b></div>
       <div class="card"><span>Средний чек (Чеки миёна)</span><b>${money(t.avg)}</b></div>
+      <div class="card"><span>Товаров на складе (Мол дар анбор)</span><b>${inventory.qty}</b></div>
+      <div class="card"><span>Сумма склада по закупке</span><b>${money(inventory.value)}</b></div>
     </div>
     <div class="grid stats">
       <div class="card"><span>Наличные</span><b>${money(t.pay.cash)}</b></div>

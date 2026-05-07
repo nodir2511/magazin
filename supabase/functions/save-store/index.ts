@@ -92,7 +92,6 @@ function normalizeDb(value: unknown) {
         sku: cleanText(product.sku, 80),
         name: cleanText(product.name, 160),
         category: cleanText(product.category, 120),
-        buyPrice: cleanNumber(product.buyPrice),
         photo: isPhotoPath(product.photo) ? product.photo : "",
       };
     })

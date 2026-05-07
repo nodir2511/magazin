@@ -55,6 +55,13 @@ body {
     color: #fff;
 }
 
+.authCard .authLink {
+    min-height: auto;
+    padding: 6px;
+    background: transparent;
+    color: var(--blue);
+}
+
 header {
     background: #fff;
     padding: 20px;

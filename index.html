@@ -17,6 +17,23 @@
             <input name="email" type="email" autocomplete="email" placeholder="Email" required>
             <input name="password" type="password" autocomplete="current-password" placeholder="Пароль" required minlength="6">
             <button type="submit">Войти</button>
+            <button class="authLink" type="button" onclick="showRecoveryForm()">Забыли пароль?</button>
+        </form>
+
+        <form id="recoveryForm" class="authCard hidden">
+            <h1>Восстановление</h1>
+            <p>Укажите email, и Supabase отправит ссылку для смены пароля.</p>
+            <input name="email" type="email" autocomplete="email" placeholder="Email" required>
+            <button type="submit">Отправить ссылку</button>
+            <button class="authLink" type="button" onclick="showLoginForm()">Назад ко входу</button>
+        </form>
+
+        <form id="passwordResetForm" class="authCard hidden">
+            <h1>Новый пароль</h1>
+            <p>Введите новый пароль для аккаунта.</p>
+            <input name="password" type="password" autocomplete="new-password" placeholder="Новый пароль" required minlength="6">
+            <input name="passwordConfirm" type="password" autocomplete="new-password" placeholder="Повторите пароль" required minlength="6">
+            <button type="submit">Сохранить пароль</button>
         </form>
     </section>
 

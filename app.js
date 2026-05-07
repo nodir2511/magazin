@@ -20,6 +20,7 @@ let userModalOpen = false;
 let productSearch = { arrive: '', sale: '', return: '' };
 let syncChain = Promise.resolve();
 const photoUrlCache = new Map();
+let recoveryAccessToken = '';
 
 const tabs = [
     ['dashboard', 'Главная (Асосӣ)'],
@@ -414,6 +415,128 @@ function supabaseHeaders(extra = {}) {
         Authorization: `Bearer ${token}`,
         ...extra
     };
+}
+
+function showAuthCard(id) {
+    ['authForm', 'recoveryForm', 'passwordResetForm'].forEach(formId => {
+        const form = document.getElementById(formId);
+        if (form) form.classList.toggle('hidden', formId !== id);
+    });
+}
+
+function showLoginForm() {
+    recoveryAccessToken = '';
+    showAuthCard('authForm');
+}
+
+function showRecoveryForm() {
+    showAuthCard('recoveryForm');
+}
+
+function readRecoveryParams() {
+    const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+    const queryParams = new URLSearchParams(window.location.search);
+    const type = hashParams.get('type') || queryParams.get('type');
+    const accessToken = hashParams.get('access_token');
+    const errorDescription = hashParams.get('error_description') || queryParams.get('error_description');
+
+    return { type, accessToken, errorDescription };
+}
+
+function preparePasswordResetFromUrl() {
+    const params = readRecoveryParams();
+
+    if (params.errorDescription) {
+        showNotice(params.errorDescription);
+        showLoginForm();
+        return false;
+    }
+
+    if (params.type === 'recovery' && params.accessToken) {
+        recoveryAccessToken = params.accessToken;
+        showAuthCard('passwordResetForm');
+        history.replaceState(null, '', window.location.pathname);
+        return true;
+    }
+
+    return false;
+}
+
+async function requestPasswordRecovery(email) {
+    if (!isSupabaseConfigured()) {
+        showNotice('Supabase не настроен.');
+        return;
+    }
+
+    const redirectTo = window.location.origin + window.location.pathname;
+    const response = await fetch(`${supabaseAuthEndpoint('recover')}?redirect_to=${encodeURIComponent(redirectTo)}`, {
+        method: 'POST',
+        headers: {
+            apikey: SUPABASE_CONFIG.anonKey,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ email })
+    });
+
+    if (!response.ok) throw new Error('Recovery failed');
+}
+
+async function updateRecoveryPassword(password) {
+    if (!recoveryAccessToken) throw new Error('Recovery token is missing');
+
+    const response = await fetch(supabaseAuthEndpoint('user'), {
+        method: 'PUT',
+        headers: {
+            apikey: SUPABASE_CONFIG.anonKey,
+            Authorization: `Bearer ${recoveryAccessToken}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ password })
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.msg || data.error_description || data.message || 'Password update failed');
+    return data;
+}
+
+async function submitRecoveryEmail() {
+    const form = document.getElementById('recoveryForm');
+    if (!form || !form.reportValidity()) return;
+
+    const fd = new FormData(form);
+    const email = String(fd.get('email') || '').trim();
+
+    try {
+        await requestPasswordRecovery(email);
+        form.reset();
+        showLoginForm();
+        showNotice('Ссылка для смены пароля отправлена на email.');
+    } catch (e) {
+        showNotice('Не удалось отправить ссылку восстановления. Проверьте email и настройки Supabase.');
+    }
+}
+
+async function submitPasswordReset() {
+    const form = document.getElementById('passwordResetForm');
+    if (!form || !form.reportValidity()) return;
+
+    const fd = new FormData(form);
+    const password = String(fd.get('password') || '');
+    const passwordConfirm = String(fd.get('passwordConfirm') || '');
+
+    if (password !== passwordConfirm) {
+        showNotice('Пароли не совпадают.');
+        return;
+    }
+
+    try {
+        await updateRecoveryPassword(password);
+        form.reset();
+        showLoginForm();
+        showNotice('Пароль обновлен. Теперь войдите с новым паролем.');
+    } catch (e) {
+        showNotice('Не удалось обновить пароль. Запросите новую ссылку восстановления.');
+    }
 }
 
 function setSyncStatus(text, state = '') {
@@ -1398,6 +1521,8 @@ function render() {
 async function initApp() {
   localStorage.removeItem(SESSION_KEY);
   const authForm = document.getElementById('authForm');
+  const recoveryForm = document.getElementById('recoveryForm');
+  const passwordResetForm = document.getElementById('passwordResetForm');
 
   if (authForm) authForm.onsubmit = e => {
     e.preventDefault();
@@ -1405,11 +1530,26 @@ async function initApp() {
     loginUser(String(fd.get('email') || '').trim(), String(fd.get('password') || ''));
   };
 
+  if (recoveryForm) recoveryForm.onsubmit = e => {
+    e.preventDefault();
+    submitRecoveryEmail();
+  };
+
+  if (passwordResetForm) passwordResetForm.onsubmit = e => {
+    e.preventDefault();
+    submitPasswordReset();
+  };
+
   const createUserForm = document.getElementById('createUserForm');
   if (createUserForm) createUserForm.onsubmit = e => {
     e.preventDefault();
     signUpUser();
   };
+
+  if (preparePasswordResetFromUrl()) {
+    setAuthView(false);
+    return;
+  }
 
   if (isSessionExpired(authSession)) {
     await refreshAuthSession();

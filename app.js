@@ -953,7 +953,16 @@ function productCards(mode, query = '') {
     query = query.toLowerCase();
 
     return db.products
-        .filter(p => (p.name + p.category + p.sku).toLowerCase().includes(query))
+        .filter(p => {
+            const buyPrice = lastBuyPrice(p.sku);
+            return [
+                p.name,
+                p.category,
+                p.sku,
+                buyPrice,
+                money(buyPrice)
+            ].join(' ').toLowerCase().includes(query);
+        })
         .map(p => `
       <div class="product" data-mode="${escapeHtml(mode)}" data-sku="${escapeHtml(p.sku)}" onclick="selectProductFromCard(this)">
         <div class="photo">${photoMarkup(p.photo)}</div>

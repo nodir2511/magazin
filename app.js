@@ -724,7 +724,8 @@ async function signUpUser() {
         closeUserModal();
         showNotice('Пользователь создан. Теперь он может войти по email и паролю.');
     } catch (e) {
-        showNotice('Не удалось создать пользователя. Проверьте, что Edge Function create-user опубликована.');
+        const message = e?.message || 'Проверьте, что Edge Function create-user опубликована.';
+        showNotice(`Не удалось создать пользователя. ${message}`);
     }
 }
 
@@ -958,6 +959,7 @@ function productCards(mode, query = '') {
         <h4>${escapeHtml(p.name)}</h4>
         <div class="muted">${escapeHtml(p.category || '')}</div>
         <div class="muted">Остаток (Боқимонда): ${stockOf(p.sku)}</div>
+        <div class="muted">Цена прихода: ${money(lastBuyPrice(p.sku))}</div>
       </div>
     `).join('');
 }

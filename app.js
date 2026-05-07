@@ -1,6 +1,7 @@
 const DB_KEY = 'store_business_final_v1';
 const SESSION_KEY = 'store_supabase_session_v1';
 const CHANGES_KEY = 'store_changes_history_v1';
+const ACTIVE_TAB_KEY = 'store_active_tab_v1';
 const DEFAULT_DB = { products: [], arrivals: [], sales: [], returns: [], expenses: [] };
 const SUPABASE_TABLE = 'store_state';
 const SUPABASE_CHANGES_TABLE = 'store_changes';
@@ -195,7 +196,12 @@ function returnCost(x) {
 }
 
 function navRender() {
-    nav.innerHTML = [...tabs, ['history', 'История']].map(([id, name], i) => `<button class="${i === 0 ? 'active' : ''}" data-id="${id}">${name}</button>`).join('');
+    const allTabs = [...tabs, ['history', 'История']];
+    const savedTab = localStorage.getItem(ACTIVE_TAB_KEY);
+    const activeTab = allTabs.some(([id]) => id === savedTab) ? savedTab : allTabs[0][0];
+
+    nav.innerHTML = allTabs.map(([id, name]) => `<button class="${id === activeTab ? 'active' : ''}" data-id="${id}">${name}</button>`).join('');
+    document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === activeTab));
 
     [...nav.querySelectorAll('button')].forEach(btn => {
         btn.onclick = () => {
@@ -203,6 +209,7 @@ function navRender() {
             btn.classList.add('active');
             document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
             document.getElementById(btn.dataset.id).classList.add('active');
+            localStorage.setItem(ACTIVE_TAB_KEY, btn.dataset.id);
             render();
         };
     });

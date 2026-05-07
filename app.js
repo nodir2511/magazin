@@ -15,6 +15,7 @@ let currentRole = null;
 let changeHistory = readLocalChanges();
 let selectedPeriod = 'today';
 let productModalOpen = false;
+let productEditSku = '';
 let actionModal = null;
 let userModalOpen = false;
 let productSearch = { arrive: '', sale: '', return: '' };
@@ -960,6 +961,28 @@ function closeProductModal() {
   renderArrived();
 }
 
+function openProductEditModal(sku) {
+  const product = db.products.find(p => p.sku === sku);
+  if (!product) return;
+
+  productEditSku = sku;
+  renderStock();
+  hydrateProductPhotos();
+
+  const nameInput = document.querySelector('#productEditModal input[name="name"]');
+  if (nameInput) nameInput.focus();
+}
+
+function closeProductEditModal() {
+  productEditSku = '';
+  renderStock();
+  hydrateProductPhotos();
+}
+
+function openProductEditFromButton(button) {
+  openProductEditModal(button.dataset.sku || '');
+}
+
 function openActionModal(mode, sku) {
   actionModal = { mode, sku };
   render();
@@ -1311,7 +1334,9 @@ function renderArrived() {
         </div>
       <summary>Новый товар (Моли нав)</summary>
       <form class="form modalForm" id="newProductForm">
-        <input name="photo" type="file" accept="image/*">
+        <label class="fileField">Фото товара (можно добавить позже)
+          <input name="photo" type="file" accept="image/*">
+        </label>
         <input name="name" placeholder="Название (Ном)" required>
         <input name="category" placeholder="Категория (Категория)">
         <input name="buyPrice" type="number" placeholder="Цена закупки (Нархи харид)" required>
@@ -1331,12 +1356,13 @@ function renderArrived() {
     const fd = new FormData(e.target);
     const f = Object.fromEntries(fd);
     const sku = makeSku(f.name);
-    const photo = await fileToData(fd.get('photo'));
 
     if (+f.qty <= 0 || +f.buyPrice < 0) {
       showNotice('Введите корректное количество и цену');
       return;
     }
+
+    const photo = await fileToData(fd.get('photo'));
 
     db.products.push({ sku, name: f.name, category: f.category, buyPrice: +f.buyPrice, photo });
     db.arrivals.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku, qty: +f.qty, buyPrice: +f.buyPrice });
@@ -1456,25 +1482,95 @@ function renderExpenses() {
 }
 
 function renderStock() {
+  const editProduct = db.products.find(p => p.sku === productEditSku);
+
   stock.innerHTML = `
     <h2>Склад (Анбор)</h2>
     <table>
       <tr>
+        <th>Фото</th>
         <th>Товар (Мол)</th>
         <th>Категория (Категория)</th>
         <th>Остаток (Боқимонда)</th>
         <th>Средняя закупка (Миёнаи харид)</th>
+        <th></th>
       </tr>
       ${db.products.map(p => `
         <tr>
-          <td>${escapeHtml(p.name)}</td>
+          <td><div class="stockPhoto photo">${photoMarkup(p.photo)}</div></td>
+          <td>
+            <div class="stockProduct">
+              <b>${escapeHtml(p.name)}</b>
+              <span>${escapeHtml(p.sku)}</span>
+            </div>
+          </td>
           <td>${escapeHtml(p.category || '')}</td>
           <td>${stockOf(p.sku)}</td>
           <td>${money(avgCost(p.sku))}</td>
+          <td class="rowActions">
+            <button class="editProductBtn" data-sku="${escapeHtml(p.sku)}" onclick="openProductEditFromButton(this)">Редактировать</button>
+          </td>
         </tr>
       `).join('')}
     </table>
+    ${editProduct ? `
+      <div id="productEditModal" class="modal show" onclick="if (event.target === this) closeProductEditModal()">
+        <div class="modalPanel userModalPanel" role="dialog" aria-modal="true" aria-labelledby="productEditTitle">
+          <div class="modalHeader">
+            <h3 id="productEditTitle">Редактировать товар</h3>
+            <button class="closeBtn" type="button" onclick="closeProductEditModal()" aria-label="Close">x</button>
+          </div>
+          <div class="modalProduct">
+            <div class="photo">${photoMarkup(editProduct.photo)}</div>
+            <div>
+              <h4>${escapeHtml(editProduct.name)}</h4>
+              <div class="muted">${escapeHtml(editProduct.sku)}</div>
+              <div class="muted">Остаток (Боқимонда): ${stockOf(editProduct.sku)}</div>
+            </div>
+          </div>
+          <form class="form modalForm userForm" id="productEditForm">
+            <input name="name" value="${escapeHtml(editProduct.name)}" placeholder="Название (Ном)" required>
+            <input name="category" value="${escapeHtml(editProduct.category || '')}" placeholder="Категория (Категория)">
+            <input name="buyPrice" type="number" value="${escapeHtml(editProduct.buyPrice || '')}" placeholder="Цена закупки (Нархи харид)" required>
+            <label class="fileField">Добавить или заменить фото
+              <input name="photo" type="file" accept="image/*">
+            </label>
+            <button class="actionSubmit createAction" type="submit">Сохранить товар</button>
+          </form>
+        </div>
+      </div>
+    ` : ''}
   `;
+
+  const productEditForm = document.getElementById('productEditForm');
+  if (productEditForm) productEditForm.onsubmit = async e => {
+    e.preventDefault();
+
+    const product = db.products.find(p => p.sku === productEditSku);
+    if (!product) return;
+
+    const fd = new FormData(e.target);
+    const name = String(fd.get('name') || '').trim();
+    const category = String(fd.get('category') || '').trim();
+    const buyPrice = Number(fd.get('buyPrice'));
+
+    if (!name || !Number.isFinite(buyPrice) || buyPrice < 0) {
+      showNotice('Введите название и корректную цену');
+      return;
+    }
+
+    const photoFile = fd.get('photo');
+    const newPhoto = photoFile && photoFile.size ? await fileToData(photoFile) : '';
+    if (photoFile && photoFile.size && !newPhoto) return;
+
+    product.name = name;
+    product.category = category;
+    product.buyPrice = buyPrice;
+    if (newPhoto) product.photo = newPhoto;
+
+    productEditSku = '';
+    save('Изменение товара', `${name}: карточка товара обновлена${newPhoto ? ', фото обновлено' : ''}`);
+  };
 }
 
 function renderReport() {
@@ -1549,6 +1645,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') closeNotice();
   if (e.key === 'Escape' && userModalOpen) closeUserModal();
   if (e.key === 'Escape' && productModalOpen) closeProductModal();
+  if (e.key === 'Escape' && productEditSku) closeProductEditModal();
   if (e.key === 'Escape' && actionModal) closeActionModal();
 });
 

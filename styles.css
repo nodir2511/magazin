@@ -363,6 +363,18 @@ select {
     grid-template-columns: repeat(2, minmax(220px, 1fr));
 }
 
+.fileField {
+    display: grid;
+    gap: 8px;
+    padding: 12px;
+    color: #374151;
+    font-size: 14px;
+    font-weight: 700;
+    background: #f9fafb;
+    border: 1px dashed #cbd5e1;
+    border-radius: 10px;
+}
+
 .modalForm .actionSubmit {
     grid-column: 1 / -1;
     min-height: 52px;
@@ -522,6 +534,22 @@ select {
     object-fit: cover;
 }
 
+.stockPhoto {
+    width: 64px;
+    height: 64px;
+    font-size: 12px;
+}
+
+.stockProduct {
+    display: grid;
+    gap: 4px;
+}
+
+.stockProduct span {
+    color: #6b7280;
+    font-size: 12px;
+}
+
 .product h4 {
     margin: 8px 0 4px;
 }
@@ -564,6 +592,10 @@ td {
 
 .rowActions button:last-child {
     color: var(--red);
+}
+
+.rowActions button.editProductBtn {
+    color: var(--blue);
 }
 
 .search {

@@ -831,7 +831,11 @@ function syncToSupabase(action = 'Изменение', details = '', force = fal
                 })
             });
 
-            if (!response.ok) throw new Error(`Supabase save failed: ${response.status}`);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                const errorMessage = errorData.error || errorData.message || `Supabase save failed: ${response.status}`;
+                throw new Error(errorMessage);
+            }
             if (action) rememberChange({
                 created_at: new Date().toISOString(),
                 user_email: currentUser ? currentUser.email : '',
@@ -841,9 +845,9 @@ function syncToSupabase(action = 'Изменение', details = '', force = fal
             loadChangeHistory();
             setSyncStatus(force ? 'Supabase' : 'Сохранено', 'online');
         })
-        .catch(() => {
+        .catch((error) => {
             setSyncStatus('Оффлайн', 'offline');
-            showNotice('Данные сохранены локально, но не отправились в Supabase. Проверьте интернет и настройки Supabase.');
+            showNotice(`Данные сохранены локально, но не отправились в Supabase. Причина: ${error.message || 'неизвестная ошибка'}`);
         });
 
     return syncChain;

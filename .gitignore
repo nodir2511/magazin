@@ -10,3 +10,4 @@ build/
 .env.*
 
 config.js
+supabase/.temp/

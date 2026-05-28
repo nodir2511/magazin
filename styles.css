@@ -39,6 +39,36 @@ body {
     box-shadow: 0 24px 60px rgba(17, 24, 39, 0.16);
 }
 
+.authBrand,
+.brandTitle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+}
+
+.authBrand {
+    color: #111827;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.siteLogo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    width: 42px;
+    height: 42px;
+    color: #fff;
+    background: linear-gradient(135deg, var(--blue), var(--green));
+    border-radius: 12px;
+    box-shadow: 0 10px 24px rgba(37, 99, 235, 0.28);
+    font-size: 22px;
+    font-weight: 900;
+    line-height: 1;
+}
+
 .authCard h1 {
     text-align: center;
 }
@@ -74,6 +104,10 @@ header {
 h1 {
     margin: 0;
     font-size: 28px;
+}
+
+.brandTitle {
+    margin-bottom: 8px;
 }
 
 p {

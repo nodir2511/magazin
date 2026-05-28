@@ -23,6 +23,18 @@ insert into public.store_state (id, data)
 values ('main', '{}'::jsonb)
 on conflict (id) do nothing;
 
+grant usage on schema public to authenticated, service_role;
+
+grant select on table public.store_state to authenticated;
+grant select on table public.user_roles to authenticated;
+grant select on table public.store_changes to authenticated;
+
+grant select, insert, update, delete on table public.store_state to service_role;
+grant select, insert, update, delete on table public.user_roles to service_role;
+grant select, insert, update, delete on table public.store_changes to service_role;
+
+grant usage, select on all sequences in schema public to service_role;
+
 insert into storage.buckets (id, name, public)
 values ('product-photos', 'product-photos', false)
 on conflict (id) do nothing;

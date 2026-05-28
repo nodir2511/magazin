@@ -63,22 +63,33 @@ serve(async (req) => {
     return json({ error: error.message }, 400);
   }
 
-  if (data.user?.id) {
-    await adminClient
-      .from("user_roles")
-      .upsert({ user_id: data.user.id, role: "manager" }, { onConflict: "user_id" });
-
-    await adminClient
-      .from("store_changes")
-      .insert({
-        user_id: authData.user.id,
-        user_email: authData.user.email || "unknown",
-        action: "Создание пользователя",
-        details: cleanEmail,
-      });
+  if (!data.user?.id) {
+    return json({ error: "User was not created" }, 500);
   }
 
-  return json({ id: data.user?.id, email: data.user?.email }, 200);
+  const { error: roleUpsertError } = await adminClient
+    .from("user_roles")
+    .upsert({ user_id: data.user.id, role: "manager" }, { onConflict: "user_id" });
+
+  if (roleUpsertError) {
+    await adminClient.auth.admin.deleteUser(data.user.id);
+    return json({ error: `User role was not saved: ${roleUpsertError.message}` }, 500);
+  }
+
+  const { error: changeError } = await adminClient
+    .from("store_changes")
+    .insert({
+      user_id: authData.user.id,
+      user_email: authData.user.email || "unknown",
+      action: "Создание пользователя",
+      details: cleanEmail,
+    });
+
+  return json({
+    id: data.user.id,
+    email: data.user.email,
+    warning: changeError ? `User was created, but history was not saved: ${changeError.message}` : undefined,
+  }, 200);
 });
 
 function json(body: unknown, status = 200) {

@@ -1259,13 +1259,14 @@ function arrivalsTable() {
   return `
     <h3>История прихода</h3>
     <table>
-      <tr><th>Дата</th><th>Товар</th><th>Кол-во</th><th>Цена</th><th></th></tr>
+      <tr><th>Дата</th><th>Товар</th><th>Кол-во</th><th>Цена</th><th>Сумма</th><th></th></tr>
       ${db.arrivals.map(x => `
         <tr>
           <td>${escapeHtml(x.date)}</td>
           <td>${escapeHtml(productName(x.sku))}</td>
           <td>${escapeHtml(x.qty)}</td>
           <td>${money(x.buyPrice)}</td>
+          <td>${money(x.qty * x.buyPrice)}</td>
           <td class="rowActions">
             <button data-id="${escapeHtml(x.id)}" onclick="editArrival(Number(this.dataset.id))">Изм.</button>
             <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('arrivals', Number(this.dataset.id))">Удалить</button>

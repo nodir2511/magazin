@@ -1258,7 +1258,7 @@ function editExpense(id) {
 function arrivalsTable() {
   return `
     <h3>История прихода</h3>
-    <table>
+    <table class="compactTable">
       <tr><th>Дата</th><th>Товар</th><th>Кол-во</th><th>Цена</th><th>Сумма</th><th></th></tr>
       ${db.arrivals.map(x => `
         <tr>
@@ -1280,7 +1280,7 @@ function arrivalsTable() {
 function salesTable() {
   return `
     <h3>История продаж</h3>
-    <table>
+    <table class="compactTable">
       <tr><th>Дата</th><th>Товар</th><th>Кол-во</th><th>Цена</th><th>Оплата</th><th></th></tr>
       ${db.sales.map(x => `
         <tr>
@@ -1302,7 +1302,7 @@ function salesTable() {
 function returnsTable() {
   return `
     <h3>История возвратов</h3>
-    <table>
+    <table class="compactTable">
       <tr><th>Дата</th><th>Товар</th><th>Кол-во</th><th>Сумма</th><th></th></tr>
       ${db.returns.map(x => `
         <tr>
@@ -1323,7 +1323,7 @@ function returnsTable() {
 function expensesTable() {
   return `
     <h3>История расходов</h3>
-    <table>
+    <table class="compactTable">
       <tr><th>Дата</th><th>Категория</th><th>Комментарий</th><th>Сумма</th><th></th></tr>
       ${db.expenses.map(x => `
         <tr>
@@ -1532,7 +1532,7 @@ function renderStock() {
 
   stock.innerHTML = `
     <h2>Склад (Анбор)</h2>
-    <table>
+    <table class="stockTable">
       <tr>
         <th>Фото</th>
         <th>Товар (Мол)</th>
@@ -1668,7 +1668,7 @@ function renderHistory() {
 
   historyPage.innerHTML = `
     <h2>История изменений</h2>
-    <table>
+    <table class="changeHistoryTable">
       <tr><th>Дата</th><th>Пользователь</th><th>Действие</th><th>Детали</th></tr>
       ${changeHistory.map(x => `
         <tr>

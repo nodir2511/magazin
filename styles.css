@@ -637,6 +637,48 @@ table {
     overflow: hidden;
 }
 
+.compactTable,
+.changeHistoryTable {
+    table-layout: fixed;
+}
+
+.compactTable th,
+.compactTable td,
+.changeHistoryTable th,
+.changeHistoryTable td {
+    padding: 8px;
+    font-size: 13px;
+    line-height: 1.25;
+    vertical-align: middle;
+}
+
+.compactTable th:first-child,
+.compactTable td:first-child {
+    width: 88px;
+}
+
+.compactTable th:nth-child(3),
+.compactTable td:nth-child(3) {
+    width: 58px;
+}
+
+.compactTable th:nth-child(4),
+.compactTable td:nth-child(4),
+.compactTable th:nth-child(5),
+.compactTable td:nth-child(5) {
+    width: 82px;
+}
+
+.compactTable th:last-child,
+.compactTable td:last-child {
+    width: 126px;
+}
+
+.compactTable td:nth-child(2),
+.changeHistoryTable td {
+    overflow-wrap: anywhere;
+}
+
 th,
 td {
     padding: 10px;
@@ -666,6 +708,15 @@ td {
 
 .rowActions button.editProductBtn {
     color: var(--blue);
+}
+
+.compactTable .rowActions {
+    gap: 6px;
+}
+
+.compactTable .rowActions button {
+    padding: 7px 8px;
+    font-size: 12px;
 }
 
 .search {
@@ -776,6 +827,52 @@ td {
     }
     .rowActions button {
         white-space: nowrap;
+    }
+    .compactTable {
+        display: table;
+        table-layout: fixed;
+        overflow: hidden;
+    }
+    .compactTable th,
+    .compactTable td {
+        min-width: 0;
+        padding: 6px 5px;
+        font-size: 12px;
+        line-height: 1.2;
+    }
+    .compactTable th:first-child,
+    .compactTable td:first-child {
+        width: 74px;
+    }
+    .compactTable th:nth-child(3),
+    .compactTable td:nth-child(3) {
+        width: 42px;
+    }
+    .compactTable th:nth-child(4),
+    .compactTable td:nth-child(4),
+    .compactTable th:nth-child(5),
+    .compactTable td:nth-child(5) {
+        width: 62px;
+    }
+    .compactTable th:last-child,
+    .compactTable td:last-child {
+        width: 72px;
+    }
+    .compactTable .rowActions {
+        flex-direction: column;
+        gap: 4px;
+        align-items: stretch;
+    }
+    .compactTable .rowActions button {
+        width: 100%;
+        padding: 5px 4px;
+        font-size: 11px;
+    }
+    .changeHistoryTable th,
+    .changeHistoryTable td {
+        min-width: 72px;
+        padding: 7px 6px;
+        font-size: 12px;
     }
     .stockPhoto {
         width: 52px;

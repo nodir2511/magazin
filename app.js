@@ -1329,7 +1329,7 @@ function expensesTable() {
         <tr>
           <td>${escapeHtml(x.date)}</td>
           <td>${escapeHtml(x.category)}</td>
-          <td>${escapeHtml(x.comment || '')}</td>
+          <td class="wrapCell">${escapeHtml(x.comment || '')}</td>
           <td>${money(x.amount)}</td>
           <td class="rowActions">
             <button data-id="${escapeHtml(x.id)}" onclick="editExpense(Number(this.dataset.id))">Изм.</button>
@@ -1532,7 +1532,7 @@ function renderStock() {
 
   stock.innerHTML = `
     <h2>Склад (Анбор)</h2>
-    <table class="stockTable">
+    <table class="stockTable compactTable">
       <tr>
         <th>Фото</th>
         <th>Товар (Мол)</th>

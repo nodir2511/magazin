@@ -675,6 +675,7 @@ table {
 }
 
 .compactTable td:nth-child(2),
+.compactTable .wrapCell,
 .changeHistoryTable td {
     overflow-wrap: anywhere;
 }
@@ -776,6 +777,9 @@ td {
         padding: 12px;
         overflow-x: hidden;
     }
+    .stats {
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    }
     .quick {
         grid-template-columns: 1fr;
     }
@@ -839,6 +843,7 @@ td {
         padding: 6px 5px;
         font-size: 12px;
         line-height: 1.2;
+        overflow-wrap: anywhere;
     }
     .compactTable th:first-child,
     .compactTable td:first-child {
@@ -858,6 +863,31 @@ td {
     .compactTable td:last-child {
         width: 72px;
     }
+    .stockTable.compactTable .stockPhoto {
+        width: 36px;
+        height: 36px;
+        font-size: 9px;
+    }
+    .stockTable.compactTable th:first-child,
+    .stockTable.compactTable td:first-child {
+        width: 44px;
+    }
+    .stockTable.compactTable th:nth-child(3),
+    .stockTable.compactTable td:nth-child(3) {
+        width: 58px;
+    }
+    .stockTable.compactTable th:nth-child(4),
+    .stockTable.compactTable td:nth-child(4) {
+        width: 46px;
+    }
+    .stockTable.compactTable th:nth-child(5),
+    .stockTable.compactTable td:nth-child(5) {
+        width: 58px;
+    }
+    .stockTable.compactTable th:last-child,
+    .stockTable.compactTable td:last-child {
+        width: 64px;
+    }
     .compactTable .rowActions {
         flex-direction: column;
         gap: 4px;
@@ -865,8 +895,11 @@ td {
     }
     .compactTable .rowActions button {
         width: 100%;
-        padding: 5px 4px;
+        min-height: 36px;
+        padding: 8px 6px;
         font-size: 11px;
+        white-space: normal;
+        overflow-wrap: anywhere;
     }
     .changeHistoryTable th,
     .changeHistoryTable td {
@@ -877,5 +910,31 @@ td {
     .stockPhoto {
         width: 52px;
         height: 52px;
+    }
+}
+
+@media (max-width: 380px) {
+    .compactTable th,
+    .compactTable td {
+        padding: 5px 4px;
+        font-size: 11px;
+    }
+    .changeHistoryTable th,
+    .changeHistoryTable td {
+        min-width: 64px;
+        padding: 6px 5px;
+        font-size: 11px;
+    }
+    .periods {
+        grid-template-columns: repeat(auto-fit, minmax(92px, 1fr));
+        gap: 8px;
+    }
+    .periods button {
+        padding: 10px 6px;
+        font-size: 13px;
+    }
+    nav button {
+        padding: 11px 12px;
+        font-size: 13px;
     }
 }

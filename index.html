@@ -54,6 +54,7 @@
                     <button id="langTj" onclick="setLang('tj')">ТЈ</button>
                 </div>
                 <span id="userEmail" class="userEmail"></span>
+                <button id="refreshBtn" class="refreshBtn" type="button" onclick="refreshFromSupabase(true)" title="Обновить" aria-label="Обновить">↻</button>
                 <span id="syncStatus" class="syncStatus local">Локально</span>
                 <button id="createUserButton" class="userCreateBtn hidden" type="button" onclick="openUserModal()">Создать пользователя</button>
                 <button class="logoutBtn" type="button" onclick="logoutUser()">Выйти</button>

@@ -158,6 +158,19 @@ p {
     color: #fff;
 }
 
+.refreshBtn {
+    min-height: 32px;
+    width: 32px;
+    padding: 0;
+    background: #f9fafb;
+    color: var(--blue);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-size: 17px;
+    line-height: 1;
+    flex-shrink: 0;
+}
+
 .logoutBtn {
     min-height: 32px;
     padding: 7px 12px;

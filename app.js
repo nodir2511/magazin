@@ -129,7 +129,14 @@ function getTabs() {
     ['report',    tr('tab_report')],
   ];
 }
-const DEFAULT_DB = { products: [], arrivals: [], sales: [], returns: [], expenses: [] };
+const COLLECTIONS = ['products', 'arrivals', 'sales', 'returns', 'expenses'];
+const TOMBSTONE_LIMIT = 1000;
+function emptyDeleted() {
+    return { products: [], arrivals: [], sales: [], returns: [], expenses: [] };
+}
+const DEFAULT_DB = { products: [], arrivals: [], sales: [], returns: [], expenses: [], deleted: emptyDeleted() };
+function nowMs() { return Date.now(); }
+function collectionKey(collection) { return collection === 'products' ? 'sku' : 'id'; }
 const SUPABASE_TABLE = 'store_state';
 const SUPABASE_CHANGES_TABLE = 'store_changes';
 const SHARED_STORE_ID = 'main';
@@ -156,7 +163,7 @@ function readLocalDb() {
     try {
         return normalizeDb(JSON.parse(localStorage.getItem(DB_KEY) || '{}'));
     } catch (e) {
-        return { ...DEFAULT_DB };
+        return normalizeDb({});
     }
 }
 
@@ -166,7 +173,8 @@ function normalizeDb(value) {
         sku: cleanValue(p && p.sku, 80),
         name: cleanValue(p && p.name, 160),
         category: cleanValue(p && p.category, 120),
-        photo: isPhotoPath(p && p.photo) ? p.photo : ''
+        photo: isPhotoPath(p && p.photo) ? p.photo : '',
+        updatedAt: cleanNumber(p && p.updatedAt)
     })) : [];
 
     return {
@@ -177,7 +185,8 @@ function normalizeDb(value) {
             dateKey: cleanValue(x && x.dateKey, 10),
             sku: cleanValue(x && x.sku, 80),
             qty: cleanNumber(x && x.qty),
-            buyPrice: cleanNumber(x && x.buyPrice)
+            buyPrice: cleanNumber(x && x.buyPrice),
+            updatedAt: cleanNumber(x && x.updatedAt)
         })) : [],
         sales: Array.isArray(data.sales) ? data.sales.map(x => ({
             id: cleanNumber(x && x.id),
@@ -187,7 +196,8 @@ function normalizeDb(value) {
             qty: cleanNumber(x && x.qty),
             sellPrice: cleanNumber(x && x.sellPrice),
             payment: cleanValue(x && x.payment, 40),
-            costPrice: cleanNumber(x && x.costPrice)
+            costPrice: cleanNumber(x && x.costPrice),
+            updatedAt: cleanNumber(x && x.updatedAt)
         })) : [],
         returns: Array.isArray(data.returns) ? data.returns.map(x => ({
             id: cleanNumber(x && x.id),
@@ -196,7 +206,8 @@ function normalizeDb(value) {
             sku: cleanValue(x && x.sku, 80),
             qty: cleanNumber(x && x.qty),
             refundAmount: cleanNumber(x && x.refundAmount),
-            costPrice: cleanNumber(x && x.costPrice)
+            costPrice: cleanNumber(x && x.costPrice),
+            updatedAt: cleanNumber(x && x.updatedAt)
         })) : [],
         expenses: Array.isArray(data.expenses) ? data.expenses.map(x => ({
             id: cleanNumber(x && x.id),
@@ -204,9 +215,56 @@ function normalizeDb(value) {
             dateKey: cleanValue(x && x.dateKey, 10),
             category: cleanValue(x && x.category, 120),
             amount: cleanNumber(x && x.amount),
-            comment: cleanValue(x && x.comment, 300)
-        })) : []
+            comment: cleanValue(x && x.comment, 300),
+            updatedAt: cleanNumber(x && x.updatedAt)
+        })) : [],
+        deleted: normalizeDeleted(data.deleted)
     };
+}
+
+function normalizeDeleted(value) {
+    const data = value && typeof value === 'object' ? value : {};
+    const result = emptyDeleted();
+    COLLECTIONS.forEach(name => {
+        const list = Array.isArray(data[name]) ? data[name] : [];
+        // products tombstoned by sku (string), остальные по id (number)
+        const cleaned = list
+            .map(v => name === 'products' ? cleanValue(v, 80) : cleanNumber(v))
+            .filter(v => name === 'products' ? v : Number.isFinite(v) && v > 0);
+        result[name] = Array.from(new Set(cleaned)).slice(-TOMBSTONE_LIMIT);
+    });
+    return result;
+}
+
+// Слияние двух баз: побеждает запись с большим updatedAt, удалённые (tombstone) исключаются.
+function mergeDb(base, incoming) {
+    const a = normalizeDb(base);
+    const b = normalizeDb(incoming);
+    const result = { deleted: emptyDeleted() };
+
+    COLLECTIONS.forEach(name => {
+        const key = collectionKey(name);
+        const deletedSet = new Set([...a.deleted[name], ...b.deleted[name]]);
+        const map = new Map();
+        [...a[name], ...b[name]].forEach(item => {
+            const id = item[key];
+            const prev = map.get(id);
+            if (!prev || (item.updatedAt || 0) >= (prev.updatedAt || 0)) map.set(id, item);
+        });
+        result[name] = [...map.values()].filter(item => !deletedSet.has(item[key]));
+        result.deleted[name] = Array.from(deletedSet).slice(-TOMBSTONE_LIMIT);
+    });
+
+    return result;
+}
+
+function tombstone(collection, id) {
+    if (!db.deleted) db.deleted = emptyDeleted();
+    if (!Array.isArray(db.deleted[collection])) db.deleted[collection] = [];
+    if (!db.deleted[collection].includes(id)) {
+        db.deleted[collection].push(id);
+        db.deleted[collection] = db.deleted[collection].slice(-TOMBSTONE_LIMIT);
+    }
 }
 
 function cleanValue(value, limit = 200) {
@@ -246,8 +304,17 @@ function readAuthSession() {
     }
 }
 
+function persistLocalDb() {
+    try {
+        localStorage.setItem(userDbKey(), JSON.stringify(db));
+    } catch (e) {
+        // переполнение хранилища не должно прерывать работу и синхронизацию
+        showNotice('Локальная память переполнена. Данные отправляются на сервер, но не сохранены на устройстве.');
+    }
+}
+
 function save(action = 'Изменение', details = '') {
-    localStorage.setItem(userDbKey(), JSON.stringify(db));
+    persistLocalDb();
     render();
     syncToSupabase(action, details);
 }
@@ -905,13 +972,18 @@ async function logoutUser() {
         }).catch(() => {});
     }
 
+    stopPolling();
+    lastRemoteStamp = '';
     authSession = null;
     currentUser = null;
     currentRole = null;
-    db = { ...DEFAULT_DB };
+    db = { ...DEFAULT_DB, deleted: emptyDeleted() };
     sessionStorage.removeItem(SESSION_KEY);
     setAuthView(false);
 }
+
+let lastRemoteStamp = '';
+let pollTimer = null;
 
 async function loadFromSupabase() {
     if (!isSupabaseConfigured()) {
@@ -928,7 +1000,7 @@ async function loadFromSupabase() {
 
     try {
         const response = await fetch(
-            supabaseEndpoint(`?id=eq.${encodeURIComponent(SHARED_STORE_ID)}&select=data`),
+            supabaseEndpoint(`?id=eq.${encodeURIComponent(SHARED_STORE_ID)}&select=data,updated_at`),
             { headers: supabaseHeaders({ Accept: 'application/json' }) }
         );
 
@@ -937,20 +1009,71 @@ async function loadFromSupabase() {
         const rows = await response.json();
 
         if (rows.length && rows[0].data) {
-            db = normalizeDb(rows[0].data);
-            localStorage.setItem(userDbKey(), JSON.stringify(db));
+            // СЛИЯНИЕ, а не перезапись: локальные несинхронизированные правки сохраняются
+            db = mergeDb(rows[0].data, db);
+            lastRemoteStamp = rows[0].updated_at || '';
+            persistLocalDb();
             render();
             setSyncStatus('Supabase', 'online');
+            startPolling();
             return;
         }
 
         await syncToSupabase('', '', true);
         setSyncStatus('Supabase', 'online');
+        startPolling();
     } catch (e) {
         setSyncStatus('Оффлайн', 'offline');
         showNotice('Не удалось загрузить данные из Supabase. Приложение пока работает с локальными данными.');
     }
 }
+
+// Ручное обновление по кнопке + опрос: подтягивает чужие изменения и сливает с локальными.
+async function refreshFromSupabase(showStatus = true) {
+    if (!isSupabaseConfigured() || !currentUser) return;
+
+    try {
+        const response = await fetch(
+            supabaseEndpoint(`?id=eq.${encodeURIComponent(SHARED_STORE_ID)}&select=data,updated_at`),
+            { headers: supabaseHeaders({ Accept: 'application/json' }) }
+        );
+        if (!response.ok) throw new Error(`Supabase refresh failed: ${response.status}`);
+
+        const rows = await response.json();
+        if (!rows.length || !rows[0].data) return;
+
+        const remoteStamp = rows[0].updated_at || '';
+        if (remoteStamp && remoteStamp === lastRemoteStamp) {
+            if (showStatus) setSyncStatus('Supabase', 'online');
+            return; // ничего нового
+        }
+
+        db = mergeDb(rows[0].data, db);
+        lastRemoteStamp = remoteStamp;
+        persistLocalDb();
+        render();
+        loadChangeHistory();
+        if (showStatus) setSyncStatus('Обновлено', 'online');
+    } catch (e) {
+        if (showStatus) setSyncStatus('Оффлайн', 'offline');
+    }
+}
+
+function startPolling() {
+    if (pollTimer) return;
+    pollTimer = setInterval(() => {
+        if (document.hidden) return; // не опрашиваем в фоне
+        refreshFromSupabase(false);
+    }, 12000);
+}
+
+function stopPolling() {
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+}
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) refreshFromSupabase(false);
+});
 
 function syncToSupabase(action = 'Изменение', details = '', force = false) {
     if (!isSupabaseConfigured()) {
@@ -985,6 +1108,14 @@ function syncToSupabase(action = 'Изменение', details = '', force = fal
                 const errorData = await response.json().catch(() => ({}));
                 const errorMessage = errorData.error || errorData.message || `Supabase save failed: ${response.status}`;
                 throw new Error(errorMessage);
+            }
+            // Сервер возвращает слитое состояние — принимаем его как источник истины
+            const result = await response.json().catch(() => ({}));
+            if (result && result.data) {
+                db = mergeDb(result.data, db);
+                lastRemoteStamp = result.updated_at || lastRemoteStamp;
+                persistLocalDb();
+                render();
             }
             if (action) rememberChange({
                 created_at: new Date().toISOString(),
@@ -1275,6 +1406,7 @@ function deleteRecord(collection, id) {
 
   if (!confirm('Удалить запись?')) return;
   db[collection] = db[collection].filter(x => x.id !== id);
+  tombstone(collection, id);
   save('Удаление записи', `${collectionTitle(collection)}: ${item.sku ? productName(item.sku) : item.category || id}`);
 }
 
@@ -1300,6 +1432,7 @@ function editArrival(id) {
 
   item.qty = qty;
   item.buyPrice = buyPrice;
+  item.updatedAt = nowMs();
   save('Изменение прихода', `${productName(item.sku)}: ${qty} шт., ${money(buyPrice)}`);
 }
 
@@ -1334,6 +1467,7 @@ function editSale(id) {
   item.sellPrice = sellPrice;
   item.payment = payment;
   item.costPrice = Number(item.costPrice) || avgCost(item.sku);
+  item.updatedAt = nowMs();
   save('Изменение продажи', `${productName(item.sku)}: ${qty} шт., ${money(sellPrice)}, ${payment}`);
 }
 
@@ -1360,6 +1494,7 @@ function editReturn(id) {
   item.qty = qty;
   item.refundAmount = refundAmount;
   item.costPrice = Number(item.costPrice) || avgSoldCost(item.sku);
+  item.updatedAt = nowMs();
   save('Изменение возврата', `${productName(item.sku)}: ${qty} шт., ${money(refundAmount)}`);
 }
 
@@ -1377,6 +1512,7 @@ function editExpense(id) {
   item.category = category;
   item.amount = amount;
   item.comment = comment.trim();
+  item.updatedAt = nowMs();
   save('Изменение расхода', `${category}: ${money(amount)}${item.comment ? `, ${item.comment}` : ''}`);
 }
 
@@ -1533,8 +1669,8 @@ function renderArrived() {
 
     const photo = await fileToData(fd.get('photo'));
 
-    db.products.push({ sku, name: f.name, category: f.category, photo });
-    db.arrivals.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku, qty: +f.qty, buyPrice: +f.buyPrice });
+    db.products.push({ sku, name: f.name, category: f.category, photo, updatedAt: nowMs() });
+    db.arrivals.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku, qty: +f.qty, buyPrice: +f.buyPrice, updatedAt: nowMs() });
     productModalOpen = false;
     save('Создание товара', `${f.name}: приход ${+f.qty} шт., закуп ${money(+f.buyPrice)}`);
   };
@@ -1550,7 +1686,7 @@ function renderArrived() {
       return;
     }
 
-    db.arrivals.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku: f.sku, qty: +f.qty, buyPrice: +f.buyPrice });
+    db.arrivals.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku: f.sku, qty: +f.qty, buyPrice: +f.buyPrice, updatedAt: nowMs() });
     actionModal = null;
     save('Приход товара', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.buyPrice)}`);
   };
@@ -1581,7 +1717,7 @@ function renderSales() {
       return;
     }
 
-    db.sales.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku: f.sku, qty: +f.qty, sellPrice: +f.sellPrice, payment: f.payment, costPrice: avgCost(f.sku) });
+    db.sales.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku: f.sku, qty: +f.qty, sellPrice: +f.sellPrice, payment: f.payment, costPrice: avgCost(f.sku), updatedAt: nowMs() });
     actionModal = null;
     save('Продажа', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.sellPrice)}, ${f.payment}`);
   };
@@ -1612,7 +1748,7 @@ function renderReturns() {
       return;
     }
 
-    db.returns.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku: f.sku, qty: +f.qty, refundAmount: +f.refundAmount, costPrice: avgSoldCost(f.sku) });
+    db.returns.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku: f.sku, qty: +f.qty, refundAmount: +f.refundAmount, costPrice: avgSoldCost(f.sku), updatedAt: nowMs() });
     actionModal = null;
     save('Возврат', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.refundAmount)}`);
   };
@@ -1647,7 +1783,7 @@ function renderExpenses() {
     }
 
     const comment = String(f.comment || '').trim();
-    db.expenses.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), category: f.category, amount: +f.amount, comment });
+    db.expenses.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), category: f.category, amount: +f.amount, comment, updatedAt: nowMs() });
     save('Расход', `${f.category}: ${money(+f.amount)}${comment ? `, ${comment}` : ''}`);
   };
 }
@@ -1740,6 +1876,7 @@ function renderStock() {
     product.name = name;
     product.category = category;
     if (newPhoto) product.photo = newPhoto;
+    product.updatedAt = nowMs();
 
     productEditSku = '';
     save('Изменение товара', `${name}: карточка товара обновлена${newPhoto ? ', фото обновлено' : ''}`);

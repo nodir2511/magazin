@@ -51,21 +51,69 @@ serve(async (req) => {
   }
 
   const body = await req.json().catch(() => ({}));
-  const data = normalizeDb(body.data);
+  const incoming = normalizeDb(body.data);
   const action = cleanText(body.action || "Изменение", 120);
   const details = cleanText(body.details || "", 500);
 
-  const { error: stateError } = await adminClient
-    .from("store_state")
-    .upsert({
-      id: "main",
-      data,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: "id" });
+  // Слияние с защитой от гонки: читаем текущее состояние, сливаем, пишем
+  // с проверкой updated_at. Если кто-то записал параллельно — повторяем.
+  let merged = incoming;
+  let saved = false;
+  let lastError = "";
 
-  if (stateError) {
-    return json({ error: stateError.message }, 400);
+  for (let attempt = 0; attempt < 6 && !saved; attempt++) {
+    const { data: existingRow, error: readError } = await adminClient
+      .from("store_state")
+      .select("data, updated_at")
+      .eq("id", "main")
+      .maybeSingle();
+
+    if (readError) {
+      lastError = readError.message;
+      break;
+    }
+
+    const newStamp = new Date().toISOString();
+
+    if (existingRow) {
+      merged = mergeStore(normalizeDb(existingRow.data), incoming);
+      const { data: updatedRows, error: updateError } = await adminClient
+        .from("store_state")
+        .update({ data: merged, updated_at: newStamp })
+        .eq("id", "main")
+        .eq("updated_at", existingRow.updated_at)
+        .select("updated_at");
+
+      if (updateError) {
+        lastError = updateError.message;
+      } else if (updatedRows && updatedRows.length) {
+        saved = true;
+      }
+      // updatedRows пуст → параллельная запись, пробуем снова
+    } else {
+      merged = incoming;
+      const { error: insertError } = await adminClient
+        .from("store_state")
+        .insert({ id: "main", data: merged, updated_at: newStamp });
+
+      if (!insertError) {
+        saved = true;
+      } else {
+        lastError = insertError.message;
+        // строка могла появиться параллельно → следующая итерация обновит её
+      }
+    }
   }
+
+  if (!saved) {
+    return json({ error: lastError || "Не удалось сохранить (конфликт записи)" }, 409);
+  }
+
+  const { data: finalRow } = await adminClient
+    .from("store_state")
+    .select("data, updated_at")
+    .eq("id", "main")
+    .maybeSingle();
 
   const { error: changeError } = await adminClient
     .from("store_changes")
@@ -80,8 +128,48 @@ serve(async (req) => {
     return json({ error: changeError.message }, 400);
   }
 
-  return json({ ok: true }, 200);
+  return json({
+    ok: true,
+    data: finalRow ? finalRow.data : merged,
+    updated_at: finalRow ? finalRow.updated_at : null,
+  }, 200);
 });
+
+const COLLECTIONS = ["products", "arrivals", "sales", "returns", "expenses"] as const;
+const TOMBSTONE_LIMIT = 1000;
+
+function collectionKey(name: string) {
+  return name === "products" ? "sku" : "id";
+}
+
+// Слияние двух баз: побеждает запись с большим updatedAt; удалённые исключаются.
+function mergeStore(base: Record<string, any>, incoming: Record<string, any>) {
+  const result: Record<string, any> = { deleted: emptyDeleted() };
+
+  for (const name of COLLECTIONS) {
+    const key = collectionKey(name);
+    const deletedSet = new Set([
+      ...(base.deleted?.[name] || []),
+      ...(incoming.deleted?.[name] || []),
+    ]);
+
+    const map = new Map<unknown, any>();
+    for (const item of [...(base[name] || []), ...(incoming[name] || [])]) {
+      const id = item[key];
+      const prev = map.get(id);
+      if (!prev || (item.updatedAt || 0) >= (prev.updatedAt || 0)) map.set(id, item);
+    }
+
+    result[name] = [...map.values()].filter((item) => !deletedSet.has(item[key]));
+    result.deleted[name] = Array.from(deletedSet).slice(-TOMBSTONE_LIMIT);
+  }
+
+  return result;
+}
+
+function emptyDeleted() {
+  return { products: [], arrivals: [], sales: [], returns: [], expenses: [] };
+}
 
 function normalizeDb(value: unknown) {
   const data = value && typeof value === "object" ? value as Record<string, unknown> : {};
@@ -93,6 +181,7 @@ function normalizeDb(value: unknown) {
         name: cleanText(product.name, 160),
         category: cleanText(product.category, 120),
         photo: isPhotoPath(product.photo) ? product.photo : "",
+        updatedAt: cleanNumber(product.updatedAt),
       };
     })
     : [];
@@ -109,6 +198,7 @@ function normalizeDb(value: unknown) {
           sku: cleanText(row.sku, 80),
           qty: cleanNumber(row.qty),
           buyPrice: cleanNumber(row.buyPrice),
+          updatedAt: cleanNumber(row.updatedAt),
         };
       })
       : [],
@@ -124,6 +214,7 @@ function normalizeDb(value: unknown) {
           sellPrice: cleanNumber(row.sellPrice),
           payment: cleanText(row.payment, 40),
           costPrice: cleanNumber(row.costPrice),
+          updatedAt: cleanNumber(row.updatedAt),
         };
       })
       : [],
@@ -138,6 +229,7 @@ function normalizeDb(value: unknown) {
           qty: cleanNumber(row.qty),
           refundAmount: cleanNumber(row.refundAmount),
           costPrice: cleanNumber(row.costPrice),
+          updatedAt: cleanNumber(row.updatedAt),
         };
       })
       : [],
@@ -151,10 +243,25 @@ function normalizeDb(value: unknown) {
           category: cleanText(row.category, 120),
           amount: cleanNumber(row.amount),
           comment: cleanText(row.comment, 300),
+          updatedAt: cleanNumber(row.updatedAt),
         };
       })
       : [],
+    deleted: normalizeDeleted(data.deleted),
   };
+}
+
+function normalizeDeleted(value: unknown) {
+  const data = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const result = emptyDeleted() as Record<string, unknown[]>;
+  for (const name of COLLECTIONS) {
+    const list = Array.isArray(data[name]) ? data[name] as unknown[] : [];
+    const cleaned = list
+      .map((v) => name === "products" ? cleanText(v, 80) : cleanNumber(v))
+      .filter((v) => name === "products" ? v : Number.isFinite(v as number) && (v as number) > 0);
+    result[name] = Array.from(new Set(cleaned)).slice(-TOMBSTONE_LIMIT);
+  }
+  return result;
 }
 
 function isPhotoPath(value: unknown) {

@@ -47,8 +47,12 @@
                 <span class="siteLogo" aria-hidden="true">M</span>
                 <h1>Учёт магазина</h1>
             </div>
-            <p>Товар пришёл (Бор омад) • Продал (Фурӯхт) • Возврат (Бозгашт) • Расход (Хароҷот)</p>
+            <p id="headerSub">Товар пришёл • Продал • Возврат • Расход</p>
             <div class="headerActions">
+                <div class="langSwitch">
+                    <button id="langRu" class="active" onclick="setLang('ru')">РУ</button>
+                    <button id="langTj" onclick="setLang('tj')">ТЈ</button>
+                </div>
                 <span id="userEmail" class="userEmail"></span>
                 <span id="syncStatus" class="syncStatus local">Локально</span>
                 <button id="createUserButton" class="userCreateBtn hidden" type="button" onclick="openUserModal()">Создать пользователя</button>

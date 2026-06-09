@@ -132,6 +132,32 @@ p {
     white-space: nowrap;
 }
 
+.langSwitch {
+    display: flex;
+    border: 1.5px solid #d1d5db;
+    border-radius: 20px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.langSwitch button {
+    padding: 5px 11px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    color: #6b7280;
+    letter-spacing: 0.04em;
+    transition: background 0.15s, color 0.15s;
+    line-height: 1;
+}
+
+.langSwitch button.active {
+    background: #2563eb;
+    color: #fff;
+}
+
 .logoutBtn {
     min-height: 32px;
     padding: 7px 12px;
@@ -872,21 +898,23 @@ td {
     .stockTable.compactTable td:first-child {
         width: 44px;
     }
+    /* Категория — скрываем на мобильном */
     .stockTable.compactTable th:nth-child(3),
     .stockTable.compactTable td:nth-child(3) {
-        width: 58px;
+        display: none;
     }
     .stockTable.compactTable th:nth-child(4),
     .stockTable.compactTable td:nth-child(4) {
-        width: 46px;
+        width: 60px;
     }
+    /* Средняя закупка — скрываем на мобильном */
     .stockTable.compactTable th:nth-child(5),
     .stockTable.compactTable td:nth-child(5) {
-        width: 58px;
+        display: none;
     }
     .stockTable.compactTable th:last-child,
     .stockTable.compactTable td:last-child {
-        width: 64px;
+        width: 80px;
     }
     .compactTable .rowActions {
         flex-direction: column;

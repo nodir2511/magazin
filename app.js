@@ -2,6 +2,133 @@ const DB_KEY = 'store_business_final_v1';
 const SESSION_KEY = 'store_supabase_session_v1';
 const CHANGES_KEY = 'store_changes_history_v1';
 const ACTIVE_TAB_KEY = 'store_active_tab_v1';
+const LANG_KEY = 'store_lang_v1';
+
+let currentLang = localStorage.getItem(LANG_KEY) || 'ru';
+
+const T = {
+  ru: {
+    tab_dashboard: 'Главная', tab_arrived: 'Товар пришёл', tab_sales: 'Продал',
+    tab_returns: 'Возврат', tab_expenses: 'Расход', tab_stock: 'Склад',
+    tab_report: 'Отчёт', tab_history: 'История',
+    header_sub: 'Товар пришёл • Продал • Возврат • Расход',
+    revenue_today: 'Выручка сегодня', profit_today: 'Прибыль сегодня',
+    expenses_today: 'Расходы сегодня', sold_today: 'Продано сегодня',
+    revenue_total: 'Общая выручка', profit_total: 'Общая прибыль',
+    btn_sale: 'ПРОДАЛ', btn_arrived: 'ТОВАР ПРИШЁЛ', btn_return: 'ВОЗВРАТ',
+    btn_expense: 'РАСХОД', btn_stock: 'СКЛАД',
+    stock_left: 'Остаток', last_buy: 'Цена прихода',
+    search_placeholder: 'Поиск товара',
+    add_product: 'Добавить товар', new_product_title: 'Добавить товар',
+    new_product_summary: 'Новый товар',
+    photo_field: 'Фото товара (можно добавить позже)',
+    name_placeholder: 'Название', category_placeholder: 'Категория',
+    buy_price_placeholder: 'Цена закупки', qty_placeholder: 'Количество',
+    create_btn: 'Создать',
+    new_buy_price_placeholder: 'Новая цена закупки',
+    add_btn: 'Добавить', sell_price_placeholder: 'Цена продажи',
+    sold_btn: 'Продал', refund_placeholder: 'Сумма возврата', return_btn: 'Возврат',
+    expense_cat_rent: 'Аренда', expense_cat_salary: 'Зарплата',
+    expense_cat_food: 'Еда', expense_cat_transport: 'Транспорт',
+    expense_cat_other: 'Прочее', amount_placeholder: 'Сумма', save_btn: 'Сохранить',
+    col_photo: 'Фото', col_product: 'Товар', col_category: 'Категория',
+    col_stock: 'Остаток', col_avg_cost: 'Средняя закупка',
+    edit_btn: 'Редактировать', edit_product_title: 'Редактировать товар',
+    product_name_label: 'Название товара', product_photo_label: 'Фото товара',
+    save_product_btn: 'Сохранить товар',
+    period_today: 'Сегодня', period_week: 'Неделя', period_month: 'Месяц',
+    period_quarter: 'Квартал', period_year: 'Год', period_all: 'Всё',
+    period_custom: 'От даты',
+    rep_revenue: 'Выручка', rep_cost: 'Себестоимость', rep_gross: 'Валовая прибыль',
+    rep_expenses: 'Расходы', rep_returns: 'Возвраты', rep_net: 'Чистая прибыль',
+    rep_sold: 'Продано', rep_avg: 'Средний чек', rep_in_stock: 'Товаров на складе',
+    rep_stock_value: 'Сумма склада по закупке',
+    rep_cash: 'Наличные', rep_card: 'Карта', rep_transfer: 'Перевод', rep_debt: 'Долг',
+    hist_title: 'История изменений', hist_date: 'Дата', hist_user: 'Пользователь',
+    hist_action: 'Действие', hist_details: 'Детали', hist_empty: 'Пока изменений нет',
+    tbl_arrivals: 'История прихода', tbl_sales: 'История продаж',
+    tbl_returns: 'История возвратов', tbl_expenses: 'История расходов',
+    col_date: 'Дата', col_item: 'Товар', col_qty: 'Кол-во', col_price: 'Цена',
+    col_total: 'Сумма', col_payment: 'Оплата', col_comment: 'Комментарий',
+    title_arrive: 'Зафиксировать приход', title_sale: 'Зафиксировать продажу',
+    title_return: 'Оформить возврат', download_data: 'Скачать данные',
+    edit_short: 'Изм.', delete_btn: 'Удалить',
+  },
+  tj: {
+    tab_dashboard: 'Асосӣ', tab_arrived: 'Бор омад', tab_sales: 'Фурухт',
+    tab_returns: 'Бозгашт', tab_expenses: 'Харочот', tab_stock: 'Анбор',
+    tab_report: 'Ҳисобот', tab_history: 'Таърих',
+    header_sub: 'Бор омад • Фурӯхт • Бозгашт • Хароҷот',
+    revenue_today: 'Даромади имрӯз', profit_today: 'Фоидаи имрӯз',
+    expenses_today: 'Хароҷоти имрӯз', sold_today: 'Фурӯхта имрӯз',
+    revenue_total: 'Даромади умумӣ', profit_total: 'Фоидаи умумӣ',
+    btn_sale: 'ФУРУХТ', btn_arrived: 'БОР ОМАД', btn_return: 'БОЗГАШТ',
+    btn_expense: 'ХАРОЧОТ', btn_stock: 'АНБОР',
+    stock_left: 'Боқимонда', last_buy: 'Нархи харид',
+    search_placeholder: 'Ҷустуҷӯи мол',
+    add_product: 'Мол илова кардан', new_product_title: 'Мол илова кардан',
+    new_product_summary: 'Моли нав',
+    photo_field: 'Акс (баъд ҳам шуда мешавад)',
+    name_placeholder: 'Ном', category_placeholder: 'Категория',
+    buy_price_placeholder: 'Нархи харид', qty_placeholder: 'Миқдор',
+    create_btn: 'Сохтан',
+    new_buy_price_placeholder: 'Нархи харид',
+    add_btn: 'Илова кардан', sell_price_placeholder: 'Нархи фурӯш',
+    sold_btn: 'Фурухт', refund_placeholder: 'Маблағи бозгашт', return_btn: 'Бозгашт',
+    expense_cat_rent: 'Иҷора', expense_cat_salary: 'Маош',
+    expense_cat_food: 'Хӯрок', expense_cat_transport: 'Нақлиёт',
+    expense_cat_other: 'Дигар', amount_placeholder: 'Маблағ', save_btn: 'Нигоҳ доштан',
+    col_photo: 'Акс', col_product: 'Мол', col_category: 'Категория',
+    col_stock: 'Боқимонда', col_avg_cost: 'Миёнаи харид',
+    edit_btn: 'Таҳрир', edit_product_title: 'Таҳрири мол',
+    product_name_label: 'Номи мол', product_photo_label: 'Акси мол',
+    save_product_btn: 'Мол нигоҳ доштан',
+    period_today: 'Имрӯз', period_week: 'Ҳафта', period_month: 'Моҳ',
+    period_quarter: 'Чоряк', period_year: 'Сол', period_all: 'Ҳама',
+    period_custom: 'Аз сана',
+    rep_revenue: 'Даромад', rep_cost: 'Арзиши аслӣ', rep_gross: 'Фоидаи умумӣ',
+    rep_expenses: 'Харочот', rep_returns: 'Бозгаштҳо', rep_net: 'Фоидаи соф',
+    rep_sold: 'Фурӯхта', rep_avg: 'Чеки миёна', rep_in_stock: 'Мол дар анбор',
+    rep_stock_value: 'Арзиши анбор',
+    rep_cash: 'Нақд', rep_card: 'Карта', rep_transfer: 'Интиқол', rep_debt: 'Қарз',
+    hist_title: 'Таърихи тағйирот', hist_date: 'Сана', hist_user: 'Корбар',
+    hist_action: 'Амал', hist_details: 'Тафсилот', hist_empty: 'Ҳоло тағйирот нест',
+    tbl_arrivals: 'Таърихи бор', tbl_sales: 'Таърихи фурӯш',
+    tbl_returns: 'Таърихи бозгашт', tbl_expenses: 'Таърихи харочот',
+    col_date: 'Сана', col_item: 'Мол', col_qty: 'Миқдор', col_price: 'Нарх',
+    col_total: 'Маблағ', col_payment: 'Пардохт', col_comment: 'Шарҳ',
+    title_arrive: 'Бор омад', title_sale: 'Фурӯхт',
+    title_return: 'Бозгашт', download_data: 'Маълумот зеркашӣ',
+    edit_short: 'Иваз', delete_btn: 'Нест кардан',
+  }
+};
+
+function tr(key) { return (T[currentLang] || T.ru)[key] || key; }
+
+function setLang(lang) {
+  currentLang = lang;
+  localStorage.setItem(LANG_KEY, lang);
+  const headerSub = document.getElementById('headerSub');
+  if (headerSub) headerSub.textContent = tr('header_sub');
+  const btnRu = document.getElementById('langRu');
+  const btnTj = document.getElementById('langTj');
+  if (btnRu) btnRu.classList.toggle('active', lang === 'ru');
+  if (btnTj) btnTj.classList.toggle('active', lang === 'tj');
+  navRender();
+  render();
+}
+
+function getTabs() {
+  return [
+    ['dashboard', tr('tab_dashboard')],
+    ['arrived',   tr('tab_arrived')],
+    ['sales',     tr('tab_sales')],
+    ['returns',   tr('tab_returns')],
+    ['expenses',  tr('tab_expenses')],
+    ['stock',     tr('tab_stock')],
+    ['report',    tr('tab_report')],
+  ];
+}
 const DEFAULT_DB = { products: [], arrivals: [], sales: [], returns: [], expenses: [] };
 const SUPABASE_TABLE = 'store_state';
 const SUPABASE_CHANGES_TABLE = 'store_changes';
@@ -24,15 +151,6 @@ let syncChain = Promise.resolve();
 const photoUrlCache = new Map();
 let recoveryAccessToken = '';
 
-const tabs = [
-    ['dashboard', 'Главная (Асосӣ)'],
-    ['arrived', 'Товар пришёл (Бор омад)'],
-    ['sales', 'Продал (Фурухт)'],
-    ['returns', 'Возврат (Бозгашт)'],
-    ['expenses', 'Расход (Харочот)'],
-    ['stock', 'Склад (Анбор)'],
-    ['report', 'Отчёт (Ҳисобот)']
-];
 
 function readLocalDb() {
     try {
@@ -213,9 +331,16 @@ function inventoryTotals() {
 }
 
 function navRender() {
-    const allTabs = [...tabs, ['history', 'История']];
+    const allTabs = [...getTabs(), ['history', tr('tab_history')]];
     const savedTab = localStorage.getItem(ACTIVE_TAB_KEY);
     const activeTab = allTabs.some(([id]) => id === savedTab) ? savedTab : allTabs[0][0];
+
+    const headerSub = document.getElementById('headerSub');
+    if (headerSub) headerSub.textContent = tr('header_sub');
+    const btnRu = document.getElementById('langRu');
+    const btnTj = document.getElementById('langTj');
+    if (btnRu) btnRu.classList.toggle('active', currentLang === 'ru');
+    if (btnTj) btnTj.classList.toggle('active', currentLang === 'tj');
 
     nav.innerHTML = allTabs.map(([id, name]) => `<button class="${id === activeTab ? 'active' : ''}" data-id="${id}">${name}</button>`).join('');
     document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === activeTab));
@@ -968,8 +1093,8 @@ function productCards(mode, query = '') {
         <div class="photo">${photoMarkup(p.photo)}</div>
         <h4>${escapeHtml(p.name)}</h4>
         <div class="muted">${escapeHtml(p.category || '')}</div>
-        <div class="muted">Остаток (Боқимонда): ${stockOf(p.sku)}</div>
-        <div class="muted">Цена прихода: ${money(lastBuyPrice(p.sku))}</div>
+        <div class="muted">${tr('stock_left')}: ${stockOf(p.sku)}</div>
+        <div class="muted">${tr('last_buy')}: ${money(lastBuyPrice(p.sku))}</div>
       </div>
     `).join('');
 }
@@ -1035,10 +1160,10 @@ function closeActionModal() {
 }
 
 function actionModalTitle(mode) {
-  if (mode === 'arrive') return 'Добавить приход товара';
-  if (mode === 'sale') return 'Продать товар';
-  if (mode === 'return') return 'Оформить возврат';
-  return 'Действие с товаром';
+  if (mode === 'arrive') return tr('title_arrive');
+  if (mode === 'sale') return tr('title_sale');
+  if (mode === 'return') return tr('title_return');
+  return tr('title_arrive');
 }
 
 function actionModalMarkup(mode) {
@@ -1054,9 +1179,9 @@ function actionModalMarkup(mode) {
     formId = 'actionArriveForm';
     fields = `
       <input name="sku" readonly value="${escapeHtml(product.sku)}" placeholder="SKU">
-      <input name="qty" type="number" placeholder="Количество (Миқдор)" required>
-      <input name="buyPrice" type="number" value="${escapeHtml(lastBuyPrice(product.sku) || '')}" placeholder="Новая цена закупки (Нархи харид)" required>
-      <button class="actionSubmit arriveAction">Добавить (Илова кардан)</button>
+      <input name="qty" type="number" placeholder="${tr('qty_placeholder')}" required>
+      <input name="buyPrice" type="number" value="${escapeHtml(lastBuyPrice(product.sku) || '')}" placeholder="${tr('new_buy_price_placeholder')}" required>
+      <button class="actionSubmit arriveAction">${tr('add_btn')}</button>
     `;
   }
 
@@ -1064,15 +1189,15 @@ function actionModalMarkup(mode) {
     formId = 'actionSaleForm';
     fields = `
       <input name="sku" readonly value="${escapeHtml(product.sku)}" placeholder="SKU">
-      <input name="qty" type="number" placeholder="Количество (Миқдор)" required>
-      <input name="sellPrice" type="number" placeholder="Цена продажи (Нархи фурӯш)" required>
+      <input name="qty" type="number" placeholder="${tr('qty_placeholder')}" required>
+      <input name="sellPrice" type="number" placeholder="${tr('sell_price_placeholder')}" required>
       <select name="payment">
         <option>Наличные</option>
         <option>Карта</option>
         <option>Перевод</option>
         <option>Долг</option>
       </select>
-      <button class="actionSubmit saleAction">Продал (Фурухт)</button>
+      <button class="actionSubmit saleAction">${tr('sold_btn')}</button>
     `;
   }
 
@@ -1080,9 +1205,9 @@ function actionModalMarkup(mode) {
     formId = 'actionReturnForm';
     fields = `
       <input name="sku" readonly value="${escapeHtml(product.sku)}" placeholder="SKU">
-      <input name="qty" type="number" placeholder="Количество (Миқдор)" required>
-      <input name="refundAmount" type="number" placeholder="Сумма возврата (Маблағи бозгашт)" required>
-      <button class="actionSubmit returnAction">Возврат (Бозгашт)</button>
+      <input name="qty" type="number" placeholder="${tr('qty_placeholder')}" required>
+      <input name="refundAmount" type="number" placeholder="${tr('refund_placeholder')}" required>
+      <button class="actionSubmit returnAction">${tr('return_btn')}</button>
     `;
   }
 
@@ -1098,7 +1223,7 @@ function actionModalMarkup(mode) {
           <div>
             <h4>${escapeHtml(product.name)}</h4>
             <div class="muted">${escapeHtml(product.category || '')}</div>
-            <div class="muted">Остаток (Боқимонда): ${stockOf(product.sku)}</div>
+            <div class="muted">${tr('stock_left')}: ${stockOf(product.sku)}</div>
           </div>
         </div>
         <form class="form modalForm" id="${formId}">
@@ -1257,9 +1382,9 @@ function editExpense(id) {
 
 function arrivalsTable() {
   return `
-    <h3>История прихода</h3>
+    <h3>${tr('tbl_arrivals')}</h3>
     <table class="compactTable">
-      <tr><th>Дата</th><th>Товар</th><th>Кол-во</th><th>Цена</th><th>Сумма</th><th></th></tr>
+      <tr><th>${tr('col_date')}</th><th>${tr('col_item')}</th><th>${tr('col_qty')}</th><th>${tr('col_price')}</th><th>${tr('col_total')}</th><th></th></tr>
       ${db.arrivals.map(x => `
         <tr>
           <td>${escapeHtml(x.date)}</td>
@@ -1268,8 +1393,8 @@ function arrivalsTable() {
           <td>${money(x.buyPrice)}</td>
           <td>${money(x.qty * x.buyPrice)}</td>
           <td class="rowActions">
-            <button data-id="${escapeHtml(x.id)}" onclick="editArrival(Number(this.dataset.id))">Изм.</button>
-            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('arrivals', Number(this.dataset.id))">Удалить</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="editArrival(Number(this.dataset.id))">${tr('edit_short')}</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('arrivals', Number(this.dataset.id))">${tr('delete_btn')}</button>
           </td>
         </tr>
       `).join('')}
@@ -1279,9 +1404,9 @@ function arrivalsTable() {
 
 function salesTable() {
   return `
-    <h3>История продаж</h3>
+    <h3>${tr('tbl_sales')}</h3>
     <table class="compactTable">
-      <tr><th>Дата</th><th>Товар</th><th>Кол-во</th><th>Цена</th><th>Оплата</th><th></th></tr>
+      <tr><th>${tr('col_date')}</th><th>${tr('col_item')}</th><th>${tr('col_qty')}</th><th>${tr('col_price')}</th><th>${tr('col_payment')}</th><th></th></tr>
       ${db.sales.map(x => `
         <tr>
           <td>${escapeHtml(x.date)}</td>
@@ -1290,8 +1415,8 @@ function salesTable() {
           <td>${money(x.sellPrice)}</td>
           <td>${escapeHtml(x.payment || '')}</td>
           <td class="rowActions">
-            <button data-id="${escapeHtml(x.id)}" onclick="editSale(Number(this.dataset.id))">Изм.</button>
-            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('sales', Number(this.dataset.id))">Удалить</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="editSale(Number(this.dataset.id))">${tr('edit_short')}</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('sales', Number(this.dataset.id))">${tr('delete_btn')}</button>
           </td>
         </tr>
       `).join('')}
@@ -1301,9 +1426,9 @@ function salesTable() {
 
 function returnsTable() {
   return `
-    <h3>История возвратов</h3>
+    <h3>${tr('tbl_returns')}</h3>
     <table class="compactTable">
-      <tr><th>Дата</th><th>Товар</th><th>Кол-во</th><th>Сумма</th><th></th></tr>
+      <tr><th>${tr('col_date')}</th><th>${tr('col_item')}</th><th>${tr('col_qty')}</th><th>${tr('col_total')}</th><th></th></tr>
       ${db.returns.map(x => `
         <tr>
           <td>${escapeHtml(x.date)}</td>
@@ -1311,8 +1436,8 @@ function returnsTable() {
           <td>${escapeHtml(x.qty)}</td>
           <td>${money(x.refundAmount)}</td>
           <td class="rowActions">
-            <button data-id="${escapeHtml(x.id)}" onclick="editReturn(Number(this.dataset.id))">Изм.</button>
-            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('returns', Number(this.dataset.id))">Удалить</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="editReturn(Number(this.dataset.id))">${tr('edit_short')}</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('returns', Number(this.dataset.id))">${tr('delete_btn')}</button>
           </td>
         </tr>
       `).join('')}
@@ -1322,9 +1447,9 @@ function returnsTable() {
 
 function expensesTable() {
   return `
-    <h3>История расходов</h3>
+    <h3>${tr('tbl_expenses')}</h3>
     <table class="compactTable">
-      <tr><th>Дата</th><th>Категория</th><th>Комментарий</th><th>Сумма</th><th></th></tr>
+      <tr><th>${tr('col_date')}</th><th>${tr('col_category')}</th><th>${tr('col_comment')}</th><th>${tr('col_total')}</th><th></th></tr>
       ${db.expenses.map(x => `
         <tr>
           <td>${escapeHtml(x.date)}</td>
@@ -1332,8 +1457,8 @@ function expensesTable() {
           <td class="wrapCell">${escapeHtml(x.comment || '')}</td>
           <td>${money(x.amount)}</td>
           <td class="rowActions">
-            <button data-id="${escapeHtml(x.id)}" onclick="editExpense(Number(this.dataset.id))">Изм.</button>
-            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('expenses', Number(this.dataset.id))">Удалить</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="editExpense(Number(this.dataset.id))">${tr('edit_short')}</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('expenses', Number(this.dataset.id))">${tr('delete_btn')}</button>
           </td>
         </tr>
       `).join('')}
@@ -1347,49 +1472,49 @@ function renderDashboard() {
 
   dashboard.innerHTML = `
     <div class="grid stats">
-      <div class="card"><span>Выручка сегодня (Даромади имрӯз)</span><b>${money(td.revenue)}</b></div>
-      <div class="card"><span>Прибыль сегодня (Фоидаи имрӯз)</span><b>${money(td.net)}</b></div>
-      <div class="card"><span>Расходы сегодня (Хароҷоти имрӯз)</span><b>${money(td.expenses)}</b></div>
-      <div class="card"><span>Продано сегодня (Фурӯхта имрӯз)</span><b>${td.qty}</b></div>
+      <div class="card"><span>${tr('revenue_today')}</span><b>${money(td.revenue)}</b></div>
+      <div class="card"><span>${tr('profit_today')}</span><b>${money(td.net)}</b></div>
+      <div class="card"><span>${tr('expenses_today')}</span><b>${money(td.expenses)}</b></div>
+      <div class="card"><span>${tr('sold_today')}</span><b>${td.qty}</b></div>
     </div>
     <div class="grid quick">
-      <button class="big sale" onclick="openTab('sales')">ПРОДАЛ (ФУРУХТ)</button>
-      <button class="big split arrive" onclick="openTab('arrived')">ТОВАР ПРИШЁЛ (БОР ОМАД)</button>
-      <button class="big split return" onclick="openTab('returns')">ВОЗВРАТ (БОЗГАШТ)</button>
-      <button class="smallbtn" onclick="openTab('expenses')">РАСХОД (ХАРОЧОТ)</button>
-      <button class="smallbtn" onclick="openTab('stock')">СКЛАД (АНБОР)</button>
+      <button class="big sale" onclick="openTab('sales')">${tr('btn_sale')}</button>
+      <button class="big split arrive" onclick="openTab('arrived')">${tr('btn_arrived')}</button>
+      <button class="big split return" onclick="openTab('returns')">${tr('btn_return')}</button>
+      <button class="smallbtn" onclick="openTab('expenses')">${tr('btn_expense')}</button>
+      <button class="smallbtn" onclick="openTab('stock')">${tr('btn_stock')}</button>
     </div>
     <div class="grid stats">
-      <div class="card"><span>Общая выручка (Даромади умумӣ)</span><b>${money(all.revenue)}</b></div>
-      <div class="card"><span>Общая прибыль (Фоидаи умумӣ)</span><b>${money(all.net)}</b></div>
+      <div class="card"><span>${tr('revenue_total')}</span><b>${money(all.revenue)}</b></div>
+      <div class="card"><span>${tr('profit_total')}</span><b>${money(all.net)}</b></div>
     </div>
   `;
 }
 
 function renderArrived() {
   arrived.innerHTML = `
-    <h2>Товар пришёл (Бор омад)</h2>
-    <button class="addProductBtn" onclick="openProductModal()">Добавить товар</button>
+    <h2>${tr('tab_arrived')}</h2>
+    <button class="addProductBtn" onclick="openProductModal()">${tr('add_product')}</button>
     <div id="newProductModal" class="modal ${productModalOpen ? 'show' : ''}" onclick="if (event.target === this) closeProductModal()">
       <div class="modalPanel" role="dialog" aria-modal="true" aria-labelledby="newProductTitle">
         <div class="modalHeader">
-          <h3 id="newProductTitle">Добавить товар</h3>
+          <h3 id="newProductTitle">${tr('new_product_title')}</h3>
           <button class="closeBtn" type="button" onclick="closeProductModal()" aria-label="Close">x</button>
         </div>
-      <summary>Новый товар (Моли нав)</summary>
+      <summary>${tr('new_product_summary')}</summary>
       <form class="form modalForm" id="newProductForm">
-        <label class="fileField">Фото товара (можно добавить позже)
+        <label class="fileField">${tr('photo_field')}
           <input name="photo" type="file" accept="image/*">
         </label>
-        <input name="name" placeholder="Название (Ном)" required>
-        <input name="category" placeholder="Категория (Категория)">
-        <input name="buyPrice" type="number" placeholder="Цена закупки (Нархи харид)" required>
-        <input name="qty" type="number" placeholder="Количество (Миқдор)" required>
-        <button class="actionSubmit createAction">Создать (Сохтан)</button>
+        <input name="name" placeholder="${tr('name_placeholder')}" required>
+        <input name="category" placeholder="${tr('category_placeholder')}">
+        <input name="buyPrice" type="number" placeholder="${tr('buy_price_placeholder')}" required>
+        <input name="qty" type="number" placeholder="${tr('qty_placeholder')}" required>
+        <button class="actionSubmit createAction">${tr('create_btn')}</button>
       </form>
       </div>
     </div>
-    <input id="arriveSearch" class="search" value="${escapeHtml(productSearch.arrive)}" oninput="setSearch('arrive', this.value)" placeholder="Поиск товара (Ҷустуҷӯи мол)">
+    <input id="arriveSearch" class="search" value="${escapeHtml(productSearch.arrive)}" oninput="setSearch('arrive', this.value)" placeholder="${tr('search_placeholder')}">
     <div id="arriveProducts" class="productGrid">${productCards('arrive', productSearch.arrive)}</div>
     ${actionModalMarkup('arrive')}
     ${arrivalsTable()}
@@ -1433,8 +1558,8 @@ function renderArrived() {
 
 function renderSales() {
   sales.innerHTML = `
-    <h2>Продал (Фурухт)</h2>
-    <input id="saleSearch" class="search" value="${escapeHtml(productSearch.sale)}" oninput="setSearch('sale', this.value)" placeholder="Поиск товара (Ҷустуҷӯи мол)">
+    <h2>${tr('tab_sales')}</h2>
+    <input id="saleSearch" class="search" value="${escapeHtml(productSearch.sale)}" oninput="setSearch('sale', this.value)" placeholder="${tr('search_placeholder')}">
     <div id="saleProducts" class="productGrid">${productCards('sale', productSearch.sale)}</div>
     ${actionModalMarkup('sale')}
     ${salesTable()}
@@ -1464,8 +1589,8 @@ function renderSales() {
 
 function renderReturns() {
   returns.innerHTML = `
-    <h2>Возврат (Бозгашт)</h2>
-    <input id="returnSearch" class="search" value="${escapeHtml(productSearch.return)}" oninput="setSearch('return', this.value)" placeholder="Поиск товара (Ҷустуҷӯи мол)">
+    <h2>${tr('tab_returns')}</h2>
+    <input id="returnSearch" class="search" value="${escapeHtml(productSearch.return)}" oninput="setSearch('return', this.value)" placeholder="${tr('search_placeholder')}">
     <div id="returnProducts" class="productGrid">${productCards('return', productSearch.return)}</div>
     ${actionModalMarkup('return')}
     ${returnsTable()}
@@ -1495,18 +1620,18 @@ function renderReturns() {
 
 function renderExpenses() {
   expenses.innerHTML = `
-    <h2>Расход (Харочот)</h2>
+    <h2>${tr('tab_expenses')}</h2>
     <form class="form" id="expenseForm">
       <select name="category">
-        <option>Аренда (Иҷора)</option>
-        <option>Зарплата (Маош)</option>
-        <option>Еда (Хӯрок)</option>
-        <option>Транспорт (Нақлиёт)</option>
-        <option>Прочее (Дигар)</option>
+        <option>${tr('expense_cat_rent')}</option>
+        <option>${tr('expense_cat_salary')}</option>
+        <option>${tr('expense_cat_food')}</option>
+        <option>${tr('expense_cat_transport')}</option>
+        <option>${tr('expense_cat_other')}</option>
       </select>
-      <input name="amount" type="number" placeholder="Сумма (Маблағ)" required>
-      <input name="comment" placeholder="Комментарий к расходу">
-      <button>Сохранить (Нигоҳ доштан)</button>
+      <input name="amount" type="number" placeholder="${tr('amount_placeholder')}" required>
+      <input name="comment" placeholder="${tr('col_comment')}">
+      <button>${tr('save_btn')}</button>
     </form>
     ${expensesTable()}
   `;
@@ -1531,14 +1656,14 @@ function renderStock() {
   const editProduct = db.products.find(p => p.sku === productEditSku);
 
   stock.innerHTML = `
-    <h2>Склад (Анбор)</h2>
+    <h2>${tr('tab_stock')}</h2>
     <table class="stockTable compactTable">
       <tr>
-        <th>Фото</th>
-        <th>Товар (Мол)</th>
-        <th>Категория (Категория)</th>
-        <th>Остаток (Боқимонда)</th>
-        <th>Средняя закупка (Миёнаи харид)</th>
+        <th>${tr('col_photo')}</th>
+        <th>${tr('col_product')}</th>
+        <th>${tr('col_category')}</th>
+        <th>${tr('col_stock')}</th>
+        <th>${tr('col_avg_cost')}</th>
         <th></th>
       </tr>
       ${db.products.map(p => `
@@ -1554,7 +1679,7 @@ function renderStock() {
           <td>${stockOf(p.sku)}</td>
           <td>${money(avgCost(p.sku))}</td>
           <td class="rowActions">
-            <button class="editProductBtn" data-sku="${escapeHtml(p.sku)}" onclick="openProductEditFromButton(this)">Редактировать</button>
+            <button class="editProductBtn" data-sku="${escapeHtml(p.sku)}" onclick="openProductEditFromButton(this)">${tr('edit_btn')}</button>
           </td>
         </tr>
       `).join('')}
@@ -1563,7 +1688,7 @@ function renderStock() {
       <div id="productEditModal" class="modal show" onclick="if (event.target === this) closeProductEditModal()">
         <div class="modalPanel userModalPanel" role="dialog" aria-modal="true" aria-labelledby="productEditTitle">
           <div class="modalHeader">
-            <h3 id="productEditTitle">Редактировать товар</h3>
+            <h3 id="productEditTitle">${tr('edit_product_title')}</h3>
             <button class="closeBtn" type="button" onclick="closeProductEditModal()" aria-label="Close">x</button>
           </div>
           <div class="modalProduct">
@@ -1571,21 +1696,21 @@ function renderStock() {
             <div>
               <h4>${escapeHtml(editProduct.name)}</h4>
               <div class="muted">${escapeHtml(editProduct.sku)}</div>
-              <div class="muted">Остаток (Боқимонда): ${stockOf(editProduct.sku)}</div>
+              <div class="muted">${tr('stock_left')}: ${stockOf(editProduct.sku)}</div>
             </div>
           </div>
           <form class="form modalForm productEditForm" id="productEditForm">
-            <label class="fieldLabel">Название товара
+            <label class="fieldLabel">${tr('product_name_label')}
               <input name="name" value="${escapeHtml(editProduct.name)}" placeholder="Например: Футболка" required>
             </label>
             <label class="fieldLabel">Категория
               <input name="category" value="${escapeHtml(editProduct.category || '')}" placeholder="Например: Одежда">
             </label>
-            <label class="fieldLabel fileField">Фото товара
+            <label class="fieldLabel fileField">${tr('product_photo_label')}
               <span>Можно добавить сейчас или заменить старое фото</span>
               <input name="photo" type="file" accept="image/*">
             </label>
-            <button class="actionSubmit createAction" type="submit">Сохранить товар</button>
+            <button class="actionSubmit createAction" type="submit">${tr('save_product_btn')}</button>
           </form>
         </div>
       </div>
@@ -1626,38 +1751,38 @@ function renderReport() {
   const inventory = inventoryTotals();
 
   report.innerHTML = `
-    <h2>Отчёт (Ҳисобот)</h2>
-    <button class="topbtn reportExport" onclick="exportData()">Скачать данные</button>
+    <h2>${tr('tab_report')}</h2>
+    <button class="topbtn reportExport" onclick="exportData()">${tr('download_data')}</button>
     <div class="periods">
-      <button onclick="setPeriod('today')" class="${selectedPeriod === 'today' ? 'active' : ''}">Сегодня (Имрӯз)</button>
-      <button onclick="setPeriod('week')" class="${selectedPeriod === 'week' ? 'active' : ''}">Неделя (Ҳафта)</button>
-      <button onclick="setPeriod('month')" class="${selectedPeriod === 'month' ? 'active' : ''}">Месяц (Моҳ)</button>
-      <button onclick="setPeriod('quarter')" class="${selectedPeriod === 'quarter' ? 'active' : ''}">Квартал (Чоряк)</button>
-      <button onclick="setPeriod('year')" class="${selectedPeriod === 'year' ? 'active' : ''}">Год (Сол)</button>
-      <button onclick="setPeriod('all')" class="${selectedPeriod === 'all' ? 'active' : ''}">Всё (Ҳама)</button>
-      <button onclick="setPeriod('custom')" class="${selectedPeriod === 'custom' ? 'active' : ''}">От даты (Аз сана)</button>
+      <button onclick="setPeriod('today')" class="${selectedPeriod === 'today' ? 'active' : ''}">${tr('period_today')}</button>
+      <button onclick="setPeriod('week')" class="${selectedPeriod === 'week' ? 'active' : ''}">${tr('period_week')}</button>
+      <button onclick="setPeriod('month')" class="${selectedPeriod === 'month' ? 'active' : ''}">${tr('period_month')}</button>
+      <button onclick="setPeriod('quarter')" class="${selectedPeriod === 'quarter' ? 'active' : ''}">${tr('period_quarter')}</button>
+      <button onclick="setPeriod('year')" class="${selectedPeriod === 'year' ? 'active' : ''}">${tr('period_year')}</button>
+      <button onclick="setPeriod('all')" class="${selectedPeriod === 'all' ? 'active' : ''}">${tr('period_all')}</button>
+      <button onclick="setPeriod('custom')" class="${selectedPeriod === 'custom' ? 'active' : ''}">${tr('period_custom')}</button>
     </div>
     <div class="${selectedPeriod === 'custom' ? 'form' : 'hidden'}">
       <input type="date" id="dateFrom" onchange="renderReport()">
       <input type="date" id="dateTo" onchange="renderReport()">
     </div>
     <div class="grid stats">
-      <div class="card"><span>Выручка (Даромад)</span><b>${money(t.revenue)}</b></div>
-      <div class="card"><span>Себестоимость (Арзиши аслӣ)</span><b>${money(t.cost)}</b></div>
-      <div class="card"><span>Валовая прибыль (Фоидаи умумӣ)</span><b>${money(t.gross)}</b></div>
-      <div class="card"><span>Расходы (Харочот)</span><b>${money(t.expenses)}</b></div>
-      <div class="card"><span>Возвраты (Бозгаштҳо)</span><b>${money(t.returns)}</b></div>
-      <div class="card"><span>Чистая прибыль (Фоидаи соф)</span><b>${money(t.net)}</b></div>
-      <div class="card"><span>Продано (Фурӯхта)</span><b>${t.qty}</b></div>
-      <div class="card"><span>Средний чек (Чеки миёна)</span><b>${money(t.avg)}</b></div>
-      <div class="card"><span>Товаров на складе (Мол дар анбор)</span><b>${inventory.qty}</b></div>
-      <div class="card"><span>Сумма склада по закупке</span><b>${money(inventory.value)}</b></div>
+      <div class="card"><span>${tr('rep_revenue')}</span><b>${money(t.revenue)}</b></div>
+      <div class="card"><span>${tr('rep_cost')}</span><b>${money(t.cost)}</b></div>
+      <div class="card"><span>${tr('rep_gross')}</span><b>${money(t.gross)}</b></div>
+      <div class="card"><span>${tr('rep_expenses')}</span><b>${money(t.expenses)}</b></div>
+      <div class="card"><span>${tr('rep_returns')}</span><b>${money(t.returns)}</b></div>
+      <div class="card"><span>${tr('rep_net')}</span><b>${money(t.net)}</b></div>
+      <div class="card"><span>${tr('rep_sold')}</span><b>${t.qty}</b></div>
+      <div class="card"><span>${tr('rep_avg')}</span><b>${money(t.avg)}</b></div>
+      <div class="card"><span>${tr('rep_in_stock')}</span><b>${inventory.qty}</b></div>
+      <div class="card"><span>${tr('rep_stock_value')}</span><b>${money(inventory.value)}</b></div>
     </div>
     <div class="grid stats">
-      <div class="card"><span>Наличные</span><b>${money(t.pay.cash)}</b></div>
-      <div class="card"><span>Карта</span><b>${money(t.pay.card)}</b></div>
-      <div class="card"><span>Перевод</span><b>${money(t.pay.transfer)}</b></div>
-      <div class="card"><span>Долг</span><b>${money(t.pay.debt)}</b></div>
+      <div class="card"><span>${tr('rep_cash')}</span><b>${money(t.pay.cash)}</b></div>
+      <div class="card"><span>${tr('rep_card')}</span><b>${money(t.pay.card)}</b></div>
+      <div class="card"><span>${tr('rep_transfer')}</span><b>${money(t.pay.transfer)}</b></div>
+      <div class="card"><span>${tr('rep_debt')}</span><b>${money(t.pay.debt)}</b></div>
     </div>
   `;
 }
@@ -1667,9 +1792,9 @@ function renderHistory() {
   if (!historyPage) return;
 
   historyPage.innerHTML = `
-    <h2>История изменений</h2>
+    <h2>${tr('hist_title')}</h2>
     <table class="changeHistoryTable">
-      <tr><th>Дата</th><th>Пользователь</th><th>Действие</th><th>Детали</th></tr>
+      <tr><th>${tr('hist_date')}</th><th>${tr('hist_user')}</th><th>${tr('hist_action')}</th><th>${tr('hist_details')}</th></tr>
       ${changeHistory.map(x => `
         <tr>
           <td>${escapeHtml(new Date(x.created_at).toLocaleString('ru-RU'))}</td>
@@ -1677,7 +1802,7 @@ function renderHistory() {
           <td>${escapeHtml(x.action || '')}</td>
           <td>${escapeHtml(x.details || '')}</td>
         </tr>
-      `).join('') || '<tr><td colspan="4">Пока изменений нет</td></tr>'}
+      `).join('') || `<tr><td colspan="4">${tr('hist_empty')}</td></tr>`}
     </table>
   `;
 }

@@ -19,6 +19,12 @@ body {
     color: #111827;
 }
 
+/* Когда открыта любая модалка — фон не прокручивается */
+body:has(.modal.show),
+body:has(.noticeModal.show) {
+    overflow: hidden;
+}
+
 .authPage {
     min-height: 100vh;
     display: flex;

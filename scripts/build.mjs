@@ -7,7 +7,7 @@ const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABA
 
 mkdirSync(outDir, { recursive: true });
 
-for (const file of ['index.html', 'app.js', 'styles.css']) {
+for (const file of ['index.html', 'app.js', 'auth.js', 'sync.js', 'products.js', 'operations.js', 'ui-tabs.js', 'styles.css']) {
   copyFileSync(file, join(outDir, file));
 }
 

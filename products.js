@@ -6,6 +6,32 @@ function recordDate(x) {
     return x.dateKey || todayKey();
 }
 
+// Цвет остатка: <=1 красный, 2-4 оранжевый, >=5 зелёный
+function stockClass(qty) {
+    if (qty <= 1) return 'stockLow';
+    if (qty < 5) return 'stockMid';
+    return 'stockOk';
+}
+
+function deleteProduct(sku) {
+    if (currentRole !== 'admin') {
+        showNotice('Удалять товары может только админ.');
+        return;
+    }
+
+    const product = db.products.find(p => p.sku === sku);
+    if (!product) return;
+
+    const remaining = stockOf(sku);
+    const warning = remaining > 0 ? `На складе ещё ${remaining} шт. ` : '';
+    if (!confirm(`${warning}Удалить товар «${product.name || sku}»? История прихода и продаж по нему сохранится.`)) return;
+
+    db.products = db.products.filter(p => p.sku !== sku);
+    tombstone('products', sku);
+    if (productEditSku === sku) productEditSku = '';
+    save('Удаление товара', product.name || sku);
+}
+
 function stockOf(sku) {
     const arrived = db.arrivals.filter(x => x.sku === sku).reduce((s, x) => s + x.qty, 0);
     const sold = db.sales.filter(x => x.sku === sku).reduce((s, x) => s + x.qty, 0);

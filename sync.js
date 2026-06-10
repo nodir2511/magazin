@@ -13,6 +13,7 @@ function normalizeDb(value) {
         name: cleanValue(p && p.name, 160),
         category: cleanValue(p && p.category, 120),
         photo: isPhotoPath(p && p.photo) ? p.photo : '',
+        ignoreLowStock: Boolean(p && p.ignoreLowStock),
         updatedAt: cleanNumber(p && p.updatedAt)
     })) : [];
 

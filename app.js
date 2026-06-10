@@ -4,7 +4,7 @@ const CHANGES_KEY = 'store_changes_history_v1';
 const ACTIVE_TAB_KEY = 'store_active_tab_v1';
 const LANG_KEY = 'store_lang_v1';
 
-let currentLang = localStorage.getItem(LANG_KEY) || 'ru';
+let currentLang = localStorage.getItem(LANG_KEY) || 'tj';
 
 const T = {
   ru: {
@@ -53,6 +53,10 @@ const T = {
     title_arrive: 'Зафиксировать приход', title_sale: 'Зафиксировать продажу',
     title_return: 'Оформить возврат', download_data: 'Скачать данные',
     edit_short: 'Изм.', delete_btn: 'Удалить',
+    low_stock: 'Заканчивается товаров',
+    export_csv: 'Excel (CSV)', print_btn: 'Печать',
+    ignore_low_stock: 'Не следить за остатком (товар снят с продажи)',
+    sale_date: 'Дата продажи',
   },
   tj: {
     tab_dashboard: 'Асосӣ', tab_arrived: 'Бор омад', tab_sales: 'Фурухт',
@@ -100,6 +104,10 @@ const T = {
     title_arrive: 'Бор омад', title_sale: 'Фурӯхт',
     title_return: 'Бозгашт', download_data: 'Маълумот зеркашӣ',
     edit_short: 'Иваз', delete_btn: 'Нест кардан',
+    low_stock: 'Мол кам мондааст',
+    export_csv: 'Excel (CSV)', print_btn: 'Чоп',
+    ignore_low_stock: 'Боқимондаро назорат накардан (мол аз фурӯш бароварда шуд)',
+    sale_date: 'Санаи фурӯш',
   }
 };
 
@@ -169,6 +177,14 @@ function todayDisplay() {
 
 function todayKey() {
     return new Date().toISOString().slice(0, 10);
+}
+
+// Превращает ключ ГГГГ-ММ-ДД в отображаемую дату; локальное время, без сдвига часового пояса
+function displayDateFromKey(key) {
+    if (!key) return todayDisplay();
+    const [y, m, d] = String(key).split('-').map(Number);
+    if (!y || !m || !d) return todayDisplay();
+    return new Date(y, m - 1, d).toLocaleDateString('ru-RU');
 }
 
 function range(period) {
@@ -250,6 +266,43 @@ function exportData() {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'store_backup.json';
+    a.click();
+}
+
+// Ячейка CSV: экранируем кавычки/разделители, разделитель — ; (для Excel в ру-локали)
+function csvCell(value) {
+    const s = String(value == null ? '' : value);
+    return /[";\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+// Выгрузка операций за выбранный период единой таблицей
+function exportCSV() {
+    const rows = [['Дата', 'Тип', 'Товар/Категория', 'Кол-во', 'Цена', 'Сумма', 'Оплата/Комментарий']];
+
+    db.arrivals.filter(x => inPeriod(x, selectedPeriod)).forEach(x => {
+        rows.push([x.date, 'Приход', productName(x.sku), x.qty, x.buyPrice, x.qty * x.buyPrice, '']);
+    });
+    db.sales.filter(x => inPeriod(x, selectedPeriod)).forEach(x => {
+        rows.push([x.date, 'Продажа', productName(x.sku), x.qty, x.sellPrice, x.qty * x.sellPrice, x.payment || '']);
+    });
+    db.returns.filter(x => inPeriod(x, selectedPeriod)).forEach(x => {
+        rows.push([x.date, 'Возврат', productName(x.sku), x.qty, x.refundAmount, x.refundAmount, '']);
+    });
+    db.expenses.filter(x => inPeriod(x, selectedPeriod)).forEach(x => {
+        rows.push([x.date, 'Расход', x.category, '', x.amount, x.amount, x.comment || '']);
+    });
+
+    if (rows.length === 1) {
+        showNotice('За выбранный период нет операций для экспорта.');
+        return;
+    }
+
+    const csv = rows.map(r => r.map(csvCell).join(';')).join('\r\n');
+    // BOM, чтобы Excel правильно открыл кириллицу в UTF-8
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `otchet_${selectedPeriod}_${todayKey()}.csv`;
     a.click();
 }
 
@@ -463,8 +516,10 @@ function closeNotice() {
 function renderDashboard() {
   const td = totals('today');
   const all = totals('all');
+  const lowStock = db.products.filter(p => !p.ignoreLowStock && stockOf(p.sku) <= 1).length;
 
   dashboard.innerHTML = `
+    ${lowStock ? `<button class="lowStockAlert" onclick="openTab('stock')">⚠ ${tr('low_stock')}: ${lowStock}</button>` : ''}
     <div class="grid stats">
       <div class="card"><span>${tr('revenue_today')}</span><b>${money(td.revenue)}</b></div>
       <div class="card"><span>${tr('profit_today')}</span><b>${money(td.net)}</b></div>
@@ -585,9 +640,10 @@ function renderSales() {
       return;
     }
 
-    db.sales.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku: f.sku, qty: +f.qty, sellPrice: +f.sellPrice, payment: f.payment, costPrice: avgCost(f.sku), updatedAt: nowMs() });
+    const saleKey = f.saleDate && f.saleDate <= todayKey() ? f.saleDate : todayKey();
+    db.sales.push({ id: Date.now(), date: displayDateFromKey(saleKey), dateKey: saleKey, sku: f.sku, qty: +f.qty, sellPrice: +f.sellPrice, payment: f.payment, costPrice: avgCost(f.sku), updatedAt: nowMs() });
     actionModal = null;
-    save('Продажа', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.sellPrice)}, ${f.payment}`);
+    save('Продажа', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.sellPrice)}, ${f.payment}${saleKey !== todayKey() ? `, дата ${displayDateFromKey(saleKey)}` : ''}`);
   };
 }
 
@@ -680,10 +736,11 @@ function renderStock() {
             </div>
           </td>
           <td>${escapeHtml(p.category || '')}</td>
-          <td>${stockOf(p.sku)}</td>
+          <td><span class="stockQty ${p.ignoreLowStock ? 'stockMuted' : stockClass(stockOf(p.sku))}">${stockOf(p.sku)}</span></td>
           <td>${money(avgCost(p.sku))}</td>
           <td class="rowActions">
             <button class="editProductBtn" data-sku="${escapeHtml(p.sku)}" onclick="openProductEditFromButton(this)">${tr('edit_btn')}</button>
+            ${currentRole === 'admin' ? `<button class="deleteProductBtn" data-sku="${escapeHtml(p.sku)}" onclick="deleteProduct(this.dataset.sku)">${tr('delete_btn')}</button>` : ''}
           </td>
         </tr>
       `).join('')}
@@ -713,6 +770,10 @@ function renderStock() {
             <label class="fieldLabel fileField">${tr('product_photo_label')}
               <span>Можно добавить сейчас или заменить старое фото</span>
               <input name="photo" type="file" accept="image/*">
+            </label>
+            <label class="checkboxField">
+              <input name="ignoreLowStock" type="checkbox" ${editProduct.ignoreLowStock ? 'checked' : ''}>
+              ${tr('ignore_low_stock')}
             </label>
             <button class="actionSubmit createAction" type="submit">${tr('save_product_btn')}</button>
           </form>
@@ -748,6 +809,7 @@ function renderStock() {
 
       product.name = name;
       product.category = category;
+      product.ignoreLowStock = fd.get('ignoreLowStock') !== null;
       if (newPhoto) product.photo = newPhoto;
       product.updatedAt = nowMs();
 
@@ -766,7 +828,11 @@ function renderReport() {
 
   report.innerHTML = `
     <h2>${tr('tab_report')}</h2>
-    <button class="topbtn reportExport" onclick="exportData()">${tr('download_data')}</button>
+    <div class="reportActions">
+      <button class="topbtn reportExport" onclick="exportCSV()">${tr('export_csv')}</button>
+      <button class="topbtn reportExport" onclick="window.print()">${tr('print_btn')}</button>
+      <button class="topbtn reportExport" onclick="exportData()">${tr('download_data')}</button>
+    </div>
     <div class="periods">
       <button onclick="setPeriod('today')" class="${selectedPeriod === 'today' ? 'active' : ''}">${tr('period_today')}</button>
       <button onclick="setPeriod('week')" class="${selectedPeriod === 'week' ? 'active' : ''}">${tr('period_week')}</button>

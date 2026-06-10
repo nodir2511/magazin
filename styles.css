@@ -287,9 +287,107 @@ main {
     gap: 14px;
 }
 
+.reportActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+}
+
+@media print {
+    header,
+    nav,
+    .reportActions,
+    .periods,
+    .lowStockAlert,
+    .rowActions,
+    .search,
+    .quick,
+    .addProductBtn,
+    .modal,
+    .refreshBtn,
+    .logoutBtn,
+    .userCreateBtn {
+        display: none !important;
+    }
+
+    body {
+        background: #fff;
+    }
+
+    .page {
+        display: none !important;
+    }
+
+    .page.active {
+        display: block !important;
+    }
+
+    .card {
+        border: 1px solid #999;
+        break-inside: avoid;
+    }
+}
+
 .stats {
     grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     margin-bottom: 18px;
+}
+
+.lowStockAlert {
+    display: block;
+    width: 100%;
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--red);
+    border-radius: 14px;
+    background: #fef2f2;
+    color: var(--red);
+    font-size: 15px;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+}
+
+.stockQty {
+    display: inline-block;
+    min-width: 32px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.stockLow {
+    background: #fef2f2;
+    color: var(--red);
+}
+
+.stockMid {
+    background: #fff7ed;
+    color: var(--orange);
+}
+
+.stockOk {
+    background: #f0fdf4;
+    color: var(--green);
+}
+
+.stockMuted {
+    background: #f3f4f6;
+    color: #9ca3af;
+}
+
+.checkboxField {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: #374151;
+}
+
+.checkboxField input {
+    width: auto;
 }
 
 .card {

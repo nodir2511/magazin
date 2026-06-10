@@ -87,6 +87,9 @@ function actionModalMarkup(mode) {
         <option>Перевод</option>
         <option>Долг</option>
       </select>
+      <label class="fieldLabel">${tr('sale_date')}
+        <input name="saleDate" type="date" value="${todayKey()}" max="${todayKey()}">
+      </label>
       <button class="actionSubmit saleAction">${tr('sold_btn')}</button>
     `;
   }

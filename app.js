@@ -1658,21 +1658,31 @@ function renderArrived() {
 
   newProductForm.onsubmit = async e => {
     e.preventDefault();
-    const fd = new FormData(e.target);
-    const f = Object.fromEntries(fd);
-    const sku = makeSku(f.name);
+    if (newProductForm.dataset.submitting === 'true') return;
+    newProductForm.dataset.submitting = 'true';
+    const submitBtn = e.target.querySelector('.actionSubmit');
+    if (submitBtn) submitBtn.disabled = true;
 
-    if (+f.qty <= 0 || +f.buyPrice < 0) {
-      showNotice('Введите корректное количество и цену');
-      return;
+    try {
+      const fd = new FormData(e.target);
+      const f = Object.fromEntries(fd);
+      const sku = makeSku(f.name);
+
+      if (+f.qty <= 0 || +f.buyPrice < 0) {
+        showNotice('Введите корректное количество и цену');
+        return;
+      }
+
+      const photo = await fileToData(fd.get('photo'));
+
+      db.products.push({ sku, name: f.name, category: f.category, photo, updatedAt: nowMs() });
+      db.arrivals.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku, qty: +f.qty, buyPrice: +f.buyPrice, updatedAt: nowMs() });
+      productModalOpen = false;
+      save('Создание товара', `${f.name}: приход ${+f.qty} шт., закуп ${money(+f.buyPrice)}`);
+    } finally {
+      newProductForm.dataset.submitting = 'false';
+      if (submitBtn) submitBtn.disabled = false;
     }
-
-    const photo = await fileToData(fd.get('photo'));
-
-    db.products.push({ sku, name: f.name, category: f.category, photo, updatedAt: nowMs() });
-    db.arrivals.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku, qty: +f.qty, buyPrice: +f.buyPrice, updatedAt: nowMs() });
-    productModalOpen = false;
-    save('Создание товара', `${f.name}: приход ${+f.qty} шт., закуп ${money(+f.buyPrice)}`);
   };
 
   const actionArriveForm = document.getElementById('actionArriveForm');
@@ -1856,30 +1866,39 @@ function renderStock() {
   const productEditForm = document.getElementById('productEditForm');
   if (productEditForm) productEditForm.onsubmit = async e => {
     e.preventDefault();
+    if (productEditForm.dataset.submitting === 'true') return;
+    productEditForm.dataset.submitting = 'true';
+    const submitBtn = e.target.querySelector('.actionSubmit');
+    if (submitBtn) submitBtn.disabled = true;
 
-    const product = db.products.find(p => p.sku === productEditSku);
-    if (!product) return;
+    try {
+      const product = db.products.find(p => p.sku === productEditSku);
+      if (!product) return;
 
-    const fd = new FormData(e.target);
-    const name = String(fd.get('name') || '').trim();
-    const category = String(fd.get('category') || '').trim();
+      const fd = new FormData(e.target);
+      const name = String(fd.get('name') || '').trim();
+      const category = String(fd.get('category') || '').trim();
 
-    if (!name) {
-      showNotice('Введите название товара');
-      return;
+      if (!name) {
+        showNotice('Введите название товара');
+        return;
+      }
+
+      const photoFile = fd.get('photo');
+      const newPhoto = photoFile && photoFile.size ? await fileToData(photoFile) : '';
+      if (photoFile && photoFile.size && !newPhoto) return;
+
+      product.name = name;
+      product.category = category;
+      if (newPhoto) product.photo = newPhoto;
+      product.updatedAt = nowMs();
+
+      productEditSku = '';
+      save('Изменение товара', `${name}: карточка товара обновлена${newPhoto ? ', фото обновлено' : ''}`);
+    } finally {
+      productEditForm.dataset.submitting = 'false';
+      if (submitBtn) submitBtn.disabled = false;
     }
-
-    const photoFile = fd.get('photo');
-    const newPhoto = photoFile && photoFile.size ? await fileToData(photoFile) : '';
-    if (photoFile && photoFile.size && !newPhoto) return;
-
-    product.name = name;
-    product.category = category;
-    if (newPhoto) product.photo = newPhoto;
-    product.updatedAt = nowMs();
-
-    productEditSku = '';
-    save('Изменение товара', `${name}: карточка товара обновлена${newPhoto ? ', фото обновлено' : ''}`);
   };
 }
 

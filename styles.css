@@ -768,6 +768,14 @@ select {
     margin: 8px 0 4px;
 }
 
+.salePriceBig {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--green);
+    margin: 0 0 6px;
+    line-height: 1.1;
+}
+
 .muted {
     color: #6b7280;
     font-size: 13px;

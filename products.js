@@ -225,10 +225,10 @@ function productCards(mode, query = '') {
       <div class="product" data-mode="${escapeHtml(mode)}" data-sku="${escapeHtml(p.sku)}" onclick="selectProductFromCard(this)">
         <div class="photo">${photoMarkup(p.photo)}</div>
         <h4>${escapeHtml(p.name)}</h4>
+        ${mode === 'sale' && p.salePrice ? `<div class="salePriceBig">${money(p.salePrice)}</div>` : ''}
         <div class="muted">${escapeHtml(p.category || '')}</div>
         <div class="muted">${tr('stock_left')}: ${stockOf(p.sku)}</div>
         <div class="muted">${tr('last_buy')}: ${money(lastBuyPrice(p.sku))}</div>
-        ${mode === 'sale' && p.salePrice ? `<div class="muted">${tr('rec_price')}: ${money(p.salePrice)}</div>` : ''}
       </div>
     `).join('');
 }

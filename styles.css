@@ -776,6 +776,18 @@ select {
     line-height: 1.1;
 }
 
+@media (max-width: 700px) {
+    .salePriceBig {
+        font-size: 18px;
+    }
+}
+
+@media (max-width: 380px) {
+    .salePriceBig {
+        font-size: 16px;
+    }
+}
+
 .muted {
     color: #6b7280;
     font-size: 13px;

@@ -51,11 +51,43 @@ function canReturnQty(sku) {
     return soldQtyOf(sku) - returnedQtyOf(sku);
 }
 
+// Скользящая средняя себестоимость: проигрываем приходы/продажи/возвраты по времени (id),
+// при каждом приходе средняя пересчитывается заново — старые закупочные цены не "тянут" текущую себестоимость.
+function inventoryState(sku) {
+    const events = [
+        ...db.arrivals.filter(x => x.sku === sku).map(x => ({ type: 'arrival', id: x.id, qty: x.qty, price: Number(x.buyPrice) || 0 })),
+        ...db.sales.filter(x => x.sku === sku).map(x => ({ type: 'sale', id: x.id, qty: x.qty, costPrice: Number(x.costPrice) || 0 })),
+        ...db.returns.filter(x => x.sku === sku).map(x => ({ type: 'return', id: x.id, qty: x.qty, costPrice: Number(x.costPrice) || 0 }))
+    ].sort((a, b) => a.id - b.id);
+
+    let qty = 0;
+    let value = 0;
+
+    events.forEach(e => {
+        if (e.type === 'arrival') {
+            qty += e.qty;
+            value += e.qty * e.price;
+            return;
+        }
+
+        const avg = qty > 0 ? value / qty : 0;
+        const cost = e.costPrice > 0 ? e.costPrice : avg;
+
+        if (e.type === 'sale') {
+            qty -= e.qty;
+            value -= cost * e.qty;
+        } else {
+            qty += e.qty;
+            value += cost * e.qty;
+        }
+    });
+
+    return { qty, value };
+}
+
 function avgCost(sku) {
-    const arrivals = db.arrivals.filter(x => x.sku === sku);
-    const qty = arrivals.reduce((s, x) => s + x.qty, 0);
-    const sum = arrivals.reduce((s, x) => s + x.qty * x.buyPrice, 0);
-    return qty ? sum / qty : 0;
+    const state = inventoryState(sku);
+    return state.qty > 0 ? state.value / state.qty : lastBuyPrice(sku);
 }
 
 function lastBuyPrice(sku) {
@@ -81,11 +113,11 @@ function returnCost(x) {
 
 function inventoryTotals() {
     return db.products.reduce((total, product) => {
-        const qty = stockOf(product.sku);
-        if (qty <= 0) return total;
+        const state = inventoryState(product.sku);
+        if (state.qty <= 0) return total;
 
-        total.qty += qty;
-        total.value += qty * avgCost(product.sku);
+        total.qty += state.qty;
+        total.value += state.value;
         return total;
     }, { qty: 0, value: 0 });
 }

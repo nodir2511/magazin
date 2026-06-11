@@ -179,8 +179,15 @@ function todayDisplay() {
     return new Date().toLocaleDateString('ru-RU');
 }
 
+function dateKeyOf(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+}
+
 function todayKey() {
-    return new Date().toISOString().slice(0, 10);
+    return dateKeyOf(new Date());
 }
 
 // Превращает ключ ГГГГ-ММ-ДД в отображаемую дату; локальное время, без сдвига часового пояса
@@ -201,20 +208,20 @@ function range(period) {
         const d = new Date(now);
         const day = d.getDay() || 7;
         d.setDate(d.getDate() - day + 1);
-        return [d.toISOString().slice(0, 10), end];
+        return [dateKeyOf(d), end];
     }
     if (period === 'month') {
         const d = new Date(now.getFullYear(), now.getMonth(), 1);
-        return [d.toISOString().slice(0, 10), end];
+        return [dateKeyOf(d), end];
     }
     if (period === 'quarter') {
         const q = Math.floor(now.getMonth() / 3) * 3;
         const d = new Date(now.getFullYear(), q, 1);
-        return [d.toISOString().slice(0, 10), end];
+        return [dateKeyOf(d), end];
     }
     if (period === 'year') {
         const d = new Date(now.getFullYear(), 0, 1);
-        return [d.toISOString().slice(0, 10), end];
+        return [dateKeyOf(d), end];
     }
 
     const dateFrom = document.getElementById('dateFrom');

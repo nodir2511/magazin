@@ -181,6 +181,7 @@ function normalizeDb(value: unknown) {
         name: cleanText(product.name, 160),
         category: cleanText(product.category, 120),
         photo: isPhotoPath(product.photo) ? product.photo : "",
+        salePrice: cleanNumber(product.salePrice),
         ignoreLowStock: Boolean(product.ignoreLowStock),
         updatedAt: cleanNumber(product.updatedAt),
       };

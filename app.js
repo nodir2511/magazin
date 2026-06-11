@@ -24,6 +24,8 @@ const T = {
     photo_field: 'Фото товара (можно добавить позже)',
     name_placeholder: 'Название', category_placeholder: 'Категория',
     buy_price_placeholder: 'Цена закупки', qty_placeholder: 'Количество',
+    sale_price_placeholder: 'Рекомендуемая цена продажи',
+    rec_price: 'Рекомендуемая цена',
     create_btn: 'Создать',
     new_buy_price_placeholder: 'Новая цена закупки',
     add_btn: 'Добавить', sell_price_placeholder: 'Цена продажи',
@@ -75,6 +77,8 @@ const T = {
     photo_field: 'Акс (баъд ҳам шуда мешавад)',
     name_placeholder: 'Ном', category_placeholder: 'Категория',
     buy_price_placeholder: 'Нархи харид', qty_placeholder: 'Миқдор',
+    sale_price_placeholder: 'Нархи тавсияшудаи фурӯш',
+    rec_price: 'Нархи тавсияшуда',
     create_btn: 'Сохтан',
     new_buy_price_placeholder: 'Нархи харид',
     add_btn: 'Илова кардан', sell_price_placeholder: 'Нархи фурӯш',
@@ -558,6 +562,7 @@ function renderArrived() {
         <input name="name" placeholder="${tr('name_placeholder')}" required>
         <input name="category" placeholder="${tr('category_placeholder')}">
         <input name="buyPrice" type="number" placeholder="${tr('buy_price_placeholder')}" required>
+        <input name="salePrice" type="number" placeholder="${tr('sale_price_placeholder')}">
         <input name="qty" type="number" placeholder="${tr('qty_placeholder')}" required>
         <button class="actionSubmit createAction">${tr('create_btn')}</button>
       </form>
@@ -588,7 +593,7 @@ function renderArrived() {
 
       const photo = await fileToData(fd.get('photo'));
 
-      db.products.push({ sku, name: f.name, category: f.category, photo, updatedAt: nowMs() });
+      db.products.push({ sku, name: f.name, category: f.category, photo, salePrice: +f.salePrice || 0, updatedAt: nowMs() });
       db.arrivals.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku, qty: +f.qty, buyPrice: +f.buyPrice, updatedAt: nowMs() });
       productModalOpen = false;
       save('Создание товара', `${f.name}: приход ${+f.qty} шт., закуп ${money(+f.buyPrice)}`);
@@ -767,6 +772,9 @@ function renderStock() {
             <label class="fieldLabel">Категория
               <input name="category" value="${escapeHtml(editProduct.category || '')}" placeholder="Например: Одежда">
             </label>
+            <label class="fieldLabel">${tr('sale_price_placeholder')}
+              <input name="salePrice" type="number" value="${escapeHtml(editProduct.salePrice || '')}" placeholder="${tr('sale_price_placeholder')}">
+            </label>
             <label class="fieldLabel fileField">${tr('product_photo_label')}
               <span>Можно добавить сейчас или заменить старое фото</span>
               <input name="photo" type="file" accept="image/*">
@@ -809,6 +817,7 @@ function renderStock() {
 
       product.name = name;
       product.category = category;
+      product.salePrice = +fd.get('salePrice') || 0;
       product.ignoreLowStock = fd.get('ignoreLowStock') !== null;
       if (newPhoto) product.photo = newPhoto;
       product.updatedAt = nowMs();

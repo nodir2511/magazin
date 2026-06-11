@@ -80,7 +80,7 @@ function actionModalMarkup(mode) {
     fields = `
       <input name="sku" readonly value="${escapeHtml(product.sku)}" placeholder="SKU">
       <input name="qty" type="number" placeholder="${tr('qty_placeholder')}" required>
-      <input name="sellPrice" type="number" placeholder="${tr('sell_price_placeholder')}" required>
+      <input name="sellPrice" type="number" value="${escapeHtml(product.salePrice || '')}" placeholder="${tr('sell_price_placeholder')}" required>
       <select name="payment">
         <option>Наличные</option>
         <option>Карта</option>

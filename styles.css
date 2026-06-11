@@ -1224,4 +1224,14 @@ th.sortable:hover {
         padding: 11px 12px;
         font-size: 13px;
     }
+    .stockTable {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .stockTable.compactTable th:nth-child(5),
+    .stockTable.compactTable td:nth-child(5) {
+        width: 42px !important;
+        display: table-cell !important;
+        padding: 5px 3px;
+    }
 }

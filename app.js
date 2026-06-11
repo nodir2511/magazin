@@ -59,6 +59,11 @@ const T = {
     export_csv: 'Excel (CSV)', print_btn: 'Печать',
     ignore_low_stock: 'Не следить за остатком (товар снят с продажи)',
     sale_date: 'Дата продажи',
+    op_date: 'Дата операции', show_more: 'Показать ещё',
+    edit_arrival_title: 'Изменение прихода', edit_sale_title: 'Изменение продажи',
+    edit_return_title: 'Изменение возврата', edit_expense_title: 'Изменение расхода',
+    edit_writeoff_title: 'Изменение списания',
+    sold_toast: '✓ Продано', total_row: 'Итого',
     writeoff_btn: 'Списать', writeoff_title: 'Списание товара',
     writeoff_reason_label: 'Причина списания',
     writeoff_reason_defect: 'Брак', writeoff_reason_loss: 'Потеря',
@@ -72,6 +77,14 @@ const T = {
     defective_checkbox: 'Брак — не возвращать на склад (списать)',
     tbl_writeoffs: 'История списаний', col_reason: 'Причина',
     rep_writeoffs: 'Списания',
+    supplier_placeholder: 'Поставщик', col_supplier: 'Поставщик',
+    arrival_paid_label: 'Оплачено', arrival_debt_label: 'В долг',
+    arrival_paid_checkbox: 'Оплачено сразу (если нет — в долг поставщику)',
+    cashflow_title: 'Касса (движение денег)',
+    rep_cash_in: 'Поступления', rep_cash_out: 'Выплаты',
+    rep_cash_purchases: 'Закупки (оплаченные)', rep_cash_flow: 'Денежный поток',
+    rep_payable: 'Долг поставщикам', rep_receivable: 'Долги покупателей',
+    rep_chart_title: 'Продажи по дням', chart_no_data: 'Нет продаж за период',
   },
   tj: {
     tab_dashboard: 'Асосӣ', tab_arrived: 'Бор омад', tab_sales: 'Фурухт',
@@ -125,6 +138,11 @@ const T = {
     export_csv: 'Excel (CSV)', print_btn: 'Чоп',
     ignore_low_stock: 'Боқимондаро назорат накардан (мол аз фурӯш бароварда шуд)',
     sale_date: 'Санаи фурӯш',
+    op_date: 'Санаи амалиёт', show_more: 'Боз нишон додан',
+    edit_arrival_title: 'Тағйири бор', edit_sale_title: 'Тағйири фурӯш',
+    edit_return_title: 'Тағйири бозгашт', edit_expense_title: 'Тағйири харочот',
+    edit_writeoff_title: 'Тағйири хориҷкунӣ',
+    sold_toast: '✓ Фурӯхта шуд', total_row: 'Ҳамагӣ',
     writeoff_btn: 'Хориҷ кардан', writeoff_title: 'Хориҷ кардани мол',
     writeoff_reason_label: 'Сабаби хориҷкунӣ',
     writeoff_reason_defect: 'Брак', writeoff_reason_loss: 'Гум шудан',
@@ -138,6 +156,14 @@ const T = {
     defective_checkbox: 'Брак — ба анбор барнагардонед (хориҷ кунед)',
     tbl_writeoffs: 'Таърихи хориҷкунӣ', col_reason: 'Сабаб',
     rep_writeoffs: 'Хориҷкунӣ',
+    supplier_placeholder: 'Таъминкунанда', col_supplier: 'Таъминкунанда',
+    arrival_paid_label: 'Пардохтшуда', arrival_debt_label: 'Қарз',
+    arrival_paid_checkbox: 'Дарҳол пардохт шуд (агар не — қарз ба таъминкунанда)',
+    cashflow_title: 'Касса (ҳаракати пул)',
+    rep_cash_in: 'Воридот', rep_cash_out: 'Пардохтҳо',
+    rep_cash_purchases: 'Харидҳо (пардохтшуда)', rep_cash_flow: 'Ҳаракати пул',
+    rep_payable: 'Қарз ба таъминкунандагон', rep_receivable: 'Қарзи харидорон',
+    rep_chart_title: 'Фурӯш аз рӯи рӯзҳо', chart_no_data: 'Дар ин давра фурӯш нест',
   }
 };
 
@@ -182,6 +208,8 @@ let actionModal = null;
 let writeoffModalSku = '';
 let userModalOpen = false;
 let productSearch = { arrive: '', sale: '', return: '' };
+let stockSearch = '';
+let stockSort = { key: 'name', dir: 1 };
 let syncChain = Promise.resolve();
 const photoUrlCache = new Map();
 let recoveryAccessToken = '';
@@ -302,6 +330,67 @@ function totals(period = 'all') {
     };
 }
 
+function arrivalPaid(x) {
+    return x.paid !== false; // старые приходы (без поля) считаем оплаченными
+}
+
+// Касса: реально пришедшие/ушедшие деньги за период.
+// Продажи в долг — это дебиторка (деньги ещё не получены), приходы в долг — кредиторка.
+function cashFlow(period = 'all') {
+    const t = totals(period);
+    const arrivals = db.arrivals.filter(x => inPeriod(x, period));
+    const purchases = arrivals.filter(arrivalPaid).reduce((s, x) => s + x.qty * x.buyPrice, 0);
+    const cashIn = t.pay.cash + t.pay.card + t.pay.transfer;
+    const cashOut = purchases + t.expenses + t.returns;
+    return { cashIn, purchases, expenses: t.expenses, refunds: t.returns, cashOut, flow: cashIn - cashOut };
+}
+
+// Текущий долг поставщикам (кредиторка) — неоплаченные приходы за всё время.
+function payableTotal() {
+    return db.arrivals.filter(x => !arrivalPaid(x)).reduce((s, x) => s + x.qty * x.buyPrice, 0);
+}
+
+// Выручка по дням за период (валовая, по дате операции).
+function salesByDay(period) {
+    const map = new Map();
+    db.sales.filter(x => inPeriod(x, period)).forEach(x => {
+        const key = recordDate(x);
+        map.set(key, (map.get(key) || 0) + x.qty * x.sellPrice);
+    });
+    return [...map.entries()]
+        .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+        .map(([dateKey, revenue]) => ({ dateKey, revenue }));
+}
+
+// Мини-график продаж по дням (последние 31 день с продажами).
+function salesChartMarkup(period) {
+    const data = salesByDay(period).slice(-31);
+    if (!data.length) {
+        return `<div class="dayChartEmpty muted">${tr('chart_no_data')}</div>`;
+    }
+
+    const max = Math.max(...data.map(d => d.revenue));
+    const bars = data.map(d => {
+        const pct = max > 0 ? Math.max(2, Math.round((d.revenue / max) * 100)) : 2;
+        const day = String(d.dateKey).split('-')[2] || '';
+        return `<div class="dayBar" title="${displayDateFromKey(d.dateKey)}: ${money(d.revenue)}">
+          <div class="dayBarFill" style="height:${pct}%"></div>
+          <span class="dayBarLabel">${day}</span>
+        </div>`;
+    }).join('');
+
+    return `<div class="dayChart">${bars}</div>`;
+}
+
+// Текущие долги покупателей (дебиторка) — продажи в долг за всё время.
+function receivableTotal() {
+    return db.sales.reduce((s, x) => {
+        const payment = (x.payment || '').toLowerCase();
+        const isDebt = !(payment.includes('нал') || payment.includes('карт') || payment.includes('пер'));
+        return isDebt ? s + x.qty * x.sellPrice : s;
+    }, 0);
+}
+
 function exportData() {
     const blob = new Blob([JSON.stringify(db, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
@@ -321,7 +410,8 @@ function exportCSV() {
     const rows = [['Дата', 'Тип', 'Товар/Категория', 'Кол-во', 'Цена', 'Сумма', 'Оплата/Комментарий']];
 
     db.arrivals.filter(x => inPeriod(x, selectedPeriod)).forEach(x => {
-        rows.push([x.date, 'Приход', productName(x.sku), x.qty, x.buyPrice, x.qty * x.buyPrice, '']);
+        const note = [x.supplier, arrivalPaid(x) ? '' : tr('arrival_debt_label')].filter(Boolean).join(', ');
+        rows.push([x.date, 'Приход', productName(x.sku), x.qty, x.buyPrice, x.qty * x.buyPrice, note]);
     });
     db.sales.filter(x => inPeriod(x, selectedPeriod)).forEach(x => {
         rows.push([x.date, 'Продажа', productName(x.sku), x.qty, x.sellPrice, x.qty * x.sellPrice, x.payment || '']);
@@ -557,6 +647,23 @@ function closeNotice() {
     if (notice) notice.remove();
 }
 
+let toastTimer = null;
+function showToast(message) {
+    let toast = document.getElementById('toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.className = 'toast';
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    // перезапуск анимации появления
+    void toast.offsetWidth;
+    toast.classList.add('show');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 1800);
+}
+
 function renderDashboard() {
   const td = totals('today');
   const all = totals('all');
@@ -604,6 +711,12 @@ function renderArrived() {
         <input name="buyPrice" type="number" placeholder="${tr('buy_price_placeholder')}" required>
         <input name="salePrice" type="number" placeholder="${tr('sale_price_placeholder')}">
         <input name="qty" type="number" placeholder="${tr('qty_placeholder')}" required>
+        <input name="supplier" placeholder="${tr('supplier_placeholder')}">
+        <label class="checkboxField">
+          <input name="paid" type="checkbox" checked>
+          ${tr('arrival_paid_checkbox')}
+        </label>
+        ${opDateField()}
         <button class="actionSubmit createAction">${tr('create_btn')}</button>
       </form>
       </div>
@@ -633,8 +746,11 @@ function renderArrived() {
 
       const photo = await fileToData(fd.get('photo'));
 
+      const supplier = String(f.supplier || '').trim();
+      const paid = fd.get('paid') !== null;
+      const dateKey = chosenDateKey(f.opDate);
       db.products.push({ sku, name: f.name, category: f.category, photo, salePrice: +f.salePrice || 0, updatedAt: nowMs() });
-      db.arrivals.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku, qty: +f.qty, buyPrice: +f.buyPrice, updatedAt: nowMs() });
+      db.arrivals.push({ id: Date.now(), date: displayDateFromKey(dateKey), dateKey, sku, qty: +f.qty, buyPrice: +f.buyPrice, supplier, paid, updatedAt: nowMs() });
       productModalOpen = false;
       save('Создание товара', `${f.name}: приход ${+f.qty} шт., закуп ${money(+f.buyPrice)}`);
     } finally {
@@ -654,9 +770,12 @@ function renderArrived() {
       return;
     }
 
-    db.arrivals.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku: f.sku, qty: +f.qty, buyPrice: +f.buyPrice, updatedAt: nowMs() });
+    const supplier = String(f.supplier || '').trim();
+    const paid = fd.get('paid') !== null;
+    const dateKey = chosenDateKey(f.opDate);
+    db.arrivals.push({ id: Date.now(), date: displayDateFromKey(dateKey), dateKey, sku: f.sku, qty: +f.qty, buyPrice: +f.buyPrice, supplier, paid, updatedAt: nowMs() });
     actionModal = null;
-    save('Приход товара', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.buyPrice)}`);
+    save('Приход товара', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.buyPrice)}${supplier ? `, ${supplier}` : ''}${paid ? '' : ` (${tr('arrival_debt_label')})`}`);
   };
 }
 
@@ -689,6 +808,7 @@ function renderSales() {
     db.sales.push({ id: Date.now(), date: displayDateFromKey(saleKey), dateKey: saleKey, sku: f.sku, qty: +f.qty, sellPrice: +f.sellPrice, payment: f.payment, costPrice: avgCost(f.sku), updatedAt: nowMs() });
     actionModal = null;
     save('Продажа', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.sellPrice)}, ${f.payment}${saleKey !== todayKey() ? `, дата ${displayDateFromKey(saleKey)}` : ''}`);
+    showToast(tr('sold_toast'));
   };
 }
 
@@ -719,10 +839,12 @@ function renderReturns() {
 
     const costPrice = avgSoldCost(f.sku);
     const defective = fd.get('defective') !== null;
+    const dateKey = chosenDateKey(f.opDate);
+    const dateDisplay = displayDateFromKey(dateKey);
 
-    db.returns.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku: f.sku, qty: +f.qty, refundAmount: +f.refundAmount, costPrice, updatedAt: nowMs() });
+    db.returns.push({ id: Date.now(), date: dateDisplay, dateKey, sku: f.sku, qty: +f.qty, refundAmount: +f.refundAmount, costPrice, updatedAt: nowMs() });
     if (defective) {
-      db.writeoffs.push({ id: Date.now() + 1, date: todayDisplay(), dateKey: todayKey(), sku: f.sku, qty: +f.qty, reason: tr('writeoff_reason_return_defect'), costPrice, updatedAt: nowMs() });
+      db.writeoffs.push({ id: Date.now() + 1, date: dateDisplay, dateKey, sku: f.sku, qty: +f.qty, reason: tr('writeoff_reason_return_defect'), costPrice, updatedAt: nowMs() });
     }
     actionModal = null;
     save('Возврат', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.refundAmount)}${defective ? `, ${tr('writeoff_reason_return_defect')}` : ''}`);
@@ -742,6 +864,7 @@ function renderExpenses() {
       </select>
       <input name="amount" type="number" placeholder="${tr('amount_placeholder')}" required>
       <input name="comment" placeholder="${tr('col_comment')}">
+      ${opDateField()}
       <button>${tr('save_btn')}</button>
     </form>
     ${expensesTable()}
@@ -758,26 +881,46 @@ function renderExpenses() {
     }
 
     const comment = String(f.comment || '').trim();
-    db.expenses.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), category: f.category, amount: +f.amount, comment, updatedAt: nowMs() });
+    const dateKey = chosenDateKey(f.opDate);
+    db.expenses.push({ id: Date.now(), date: displayDateFromKey(dateKey), dateKey, category: f.category, amount: +f.amount, comment, updatedAt: nowMs() });
     save('Расход', `${f.category}: ${money(+f.amount)}${comment ? `, ${comment}` : ''}`);
   };
 }
 
-function renderStock() {
-  const editProduct = db.products.find(p => p.sku === productEditSku);
+function stockSortValue(p) {
+  if (stockSort.key === 'stock') return stockOf(p.sku);
+  if (stockSort.key === 'avgCost') return avgCost(p.sku);
+  if (stockSort.key === 'category') return (p.category || '').toLowerCase();
+  return (p.name || '').toLowerCase();
+}
 
-  stock.innerHTML = `
-    <h2>${tr('tab_stock')}</h2>
+function stockTableMarkup() {
+  const q = stockSearch.toLowerCase();
+  const list = db.products
+    .filter(p => [p.name, p.sku, p.category].join(' ').toLowerCase().includes(q))
+    .sort((a, b) => {
+      const av = stockSortValue(a);
+      const bv = stockSortValue(b);
+      if (av < bv) return -stockSort.dir;
+      if (av > bv) return stockSort.dir;
+      return 0;
+    });
+
+  const totalQty = list.reduce((s, p) => s + stockOf(p.sku), 0);
+  const totalValue = list.reduce((s, p) => s + stockOf(p.sku) * avgCost(p.sku), 0);
+  const arrow = key => stockSort.key === key ? (stockSort.dir === 1 ? ' ▲' : ' ▼') : '';
+
+  return `
     <table class="stockTable compactTable">
       <tr>
         <th>${tr('col_photo')}</th>
-        <th>${tr('col_product')}</th>
-        <th>${tr('col_category')}</th>
-        <th>${tr('col_stock')}</th>
-        <th>${tr('col_avg_cost')}</th>
+        <th class="sortable" onclick="setStockSort('name')">${tr('col_product')}${arrow('name')}</th>
+        <th class="sortable" onclick="setStockSort('category')">${tr('col_category')}${arrow('category')}</th>
+        <th class="sortable" onclick="setStockSort('stock')">${tr('col_stock')}${arrow('stock')}</th>
+        <th class="sortable" onclick="setStockSort('avgCost')">${tr('col_avg_cost')}${arrow('avgCost')}</th>
         <th></th>
       </tr>
-      ${db.products.map(p => `
+      ${list.map(p => `
         <tr>
           <td><div class="stockPhoto photo">${photoMarkup(p.photo)}</div></td>
           <td>
@@ -797,7 +940,41 @@ function renderStock() {
           </td>
         </tr>
       `).join('')}
-    </table>
+      <tr class="totalRow">
+        <td></td>
+        <td><b>${tr('total_row')}</b></td>
+        <td></td>
+        <td><b>${totalQty}</b></td>
+        <td><b>${money(totalValue)}</b></td>
+        <td></td>
+      </tr>
+    </table>`;
+}
+
+function refreshStockTable() {
+  const wrap = document.getElementById('stockTableWrap');
+  if (wrap) wrap.innerHTML = stockTableMarkup();
+  hydrateProductPhotos();
+}
+
+function setStockSearch(value) {
+  stockSearch = value;
+  refreshStockTable();
+}
+
+function setStockSort(key) {
+  if (stockSort.key === key) stockSort.dir *= -1;
+  else stockSort = { key, dir: 1 };
+  refreshStockTable();
+}
+
+function renderStock() {
+  const editProduct = db.products.find(p => p.sku === productEditSku);
+
+  stock.innerHTML = `
+    <h2>${tr('tab_stock')}</h2>
+    <input id="stockSearch" class="search" value="${escapeHtml(stockSearch)}" oninput="setStockSearch(this.value)" placeholder="${tr('search_placeholder')}">
+    <div id="stockTableWrap">${stockTableMarkup()}</div>
     ${writeoffsTable()}
     ${writeoffModalMarkup()}
     ${editProduct ? `
@@ -900,7 +1077,8 @@ function renderStock() {
       return;
     }
 
-    db.writeoffs.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku: product.sku, qty, reason: reason || tr('writeoff_reason_other'), costPrice: avgCost(product.sku), updatedAt: nowMs() });
+    const dateKey = chosenDateKey(fd.get('opDate'));
+    db.writeoffs.push({ id: Date.now(), date: displayDateFromKey(dateKey), dateKey, sku: product.sku, qty, reason: reason || tr('writeoff_reason_other'), costPrice: avgCost(product.sku), updatedAt: nowMs() });
     writeoffModalSku = '';
     save('Списание', `${productName(product.sku)}: ${qty} шт.${reason ? `, ${reason}` : ''}`);
   };
@@ -933,6 +1111,7 @@ function writeoffModalMarkup() {
             <option>${tr('writeoff_reason_theft')}</option>
             <option>${tr('writeoff_reason_other')}</option>
           </select>
+          ${opDateField()}
           <button class="actionSubmit">${tr('writeoff_btn')}</button>
         </form>
       </div>
@@ -982,6 +1161,7 @@ function runInventoryCheck(sku) {
 function renderReport() {
   const t = totals(selectedPeriod);
   const inventory = inventoryTotals();
+  const cf = cashFlow(selectedPeriod);
 
   report.innerHTML = `
     <h2>${tr('tab_report')}</h2>
@@ -1016,11 +1196,24 @@ function renderReport() {
       <div class="card"><span>${tr('rep_in_stock')}</span><b>${inventory.qty}</b></div>
       <div class="card"><span>${tr('rep_stock_value')}</span><b>${money(inventory.value)}</b></div>
     </div>
+    <h3>${tr('rep_chart_title')}</h3>
+    ${salesChartMarkup(selectedPeriod)}
     <div class="grid stats">
       <div class="card"><span>${tr('rep_cash')}</span><b>${money(t.pay.cash)}</b></div>
       <div class="card"><span>${tr('rep_card')}</span><b>${money(t.pay.card)}</b></div>
       <div class="card"><span>${tr('rep_transfer')}</span><b>${money(t.pay.transfer)}</b></div>
       <div class="card"><span>${tr('rep_debt')}</span><b>${money(t.pay.debt)}</b></div>
+    </div>
+    <h3>${tr('cashflow_title')}</h3>
+    <div class="grid stats">
+      <div class="card"><span>${tr('rep_cash_in')}</span><b>${money(cf.cashIn)}</b></div>
+      <div class="card"><span>${tr('rep_cash_purchases')}</span><b>${money(cf.purchases)}</b></div>
+      <div class="card"><span>${tr('rep_expenses')}</span><b>${money(cf.expenses)}</b></div>
+      <div class="card"><span>${tr('rep_returns')}</span><b>${money(cf.refunds)}</b></div>
+      <div class="card"><span>${tr('rep_cash_out')}</span><b>${money(cf.cashOut)}</b></div>
+      <div class="card"><span>${tr('rep_cash_flow')}</span><b>${money(cf.flow)}</b></div>
+      <div class="card"><span>${tr('rep_payable')}</span><b>${money(payableTotal())}</b></div>
+      <div class="card"><span>${tr('rep_receivable')}</span><b>${money(receivableTotal())}</b></div>
     </div>
   `;
 }
@@ -1057,22 +1250,36 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && productEditSku) closeProductEditModal();
   if (e.key === 'Escape' && actionModal) closeActionModal();
   if (e.key === 'Escape' && writeoffModalSku) closeWriteoffModal();
+  if (e.key === 'Escape' && editModal) closeEditModal();
 });
 
+const PAGE_RENDERERS = {
+  dashboard: renderDashboard,
+  arrived: renderArrived,
+  sales: renderSales,
+  returns: renderReturns,
+  expenses: renderExpenses,
+  stock: renderStock,
+  report: renderReport,
+  history: renderHistory
+};
+
+function activeTabId() {
+  const active = document.querySelector('.page.active');
+  return active ? active.id : 'dashboard';
+}
+
+// Точечный рендер: перерисовываем только видимую вкладку.
+// Остальные перерисуются лениво при переключении на них (см. navRender).
+// Модалку редактирования здесь НЕ трогаем: фоновая синхронизация не должна
+// стирать введённые в неё значения; она управляется open/close/submit.
 function render() {
-  renderDashboard();
-  renderArrived();
-  renderSales();
-  renderReturns();
-  renderExpenses();
-  renderStock();
-  renderReport();
-  renderHistory();
+  const renderer = PAGE_RENDERERS[activeTabId()];
+  if (renderer) renderer();
   hydrateProductPhotos();
 }
 
 async function initApp() {
-  localStorage.removeItem(SESSION_KEY);
   const authForm = document.getElementById('authForm');
   const recoveryForm = document.getElementById('recoveryForm');
   const passwordResetForm = document.getElementById('passwordResetForm');
@@ -1106,6 +1313,8 @@ async function initApp() {
 
   if (isSessionExpired(authSession)) {
     await refreshAuthSession();
+  } else if (authSession) {
+    scheduleSessionRefresh();
   }
 
   if (currentUser) {
@@ -1121,5 +1330,10 @@ async function initApp() {
     setAuthView(false);
   }
 }
+
+// Периодически переподписываем фото даже без перерисовки — ссылки живут ~час.
+setInterval(() => {
+  if (!document.hidden && currentUser) hydrateProductPhotos();
+}, 5 * 60 * 1000);
 
 initApp();

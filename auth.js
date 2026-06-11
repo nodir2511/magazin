@@ -27,10 +27,37 @@ async function authRequest(path, body) {
     return data;
 }
 
-function applyAuthSession(session) {
+let sessionRefreshTimer = null;
+
+// Сохраняем сессию и планируем обновление токена — без перерисовки UI.
+function persistAuthSession(session) {
     authSession = session;
     currentUser = session.user;
-    sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    try {
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    } catch (e) {
+        // переполнение хранилища не должно ронять вход
+    }
+    scheduleSessionRefresh();
+}
+
+function clearSessionRefresh() {
+    if (sessionRefreshTimer) {
+        clearTimeout(sessionRefreshTimer);
+        sessionRefreshTimer = null;
+    }
+}
+
+// Молча обновляем access-токен примерно за минуту до истечения.
+function scheduleSessionRefresh() {
+    clearSessionRefresh();
+    if (!authSession || !authSession.expires_at) return;
+    const msUntil = authSession.expires_at * 1000 - Date.now() - 60000;
+    sessionRefreshTimer = setTimeout(() => refreshAuthSession({ silentRetry: true }), Math.max(5000, msUntil));
+}
+
+function applyAuthSession(session) {
+    persistAuthSession(session);
     db = readLocalDb();
 
     setAuthView(true);
@@ -47,22 +74,36 @@ function isSessionExpired(session) {
     return Boolean(session && session.expires_at && session.expires_at * 1000 <= Date.now() + 30000);
 }
 
-async function refreshAuthSession() {
+async function refreshAuthSession({ silentRetry = false } = {}) {
     if (!authSession || !authSession.refresh_token) return false;
 
     try {
         const session = await authRequest('token?grant_type=refresh_token', {
             refresh_token: authSession.refresh_token
         });
-        applyAuthSession(session);
+        persistAuthSession(session);
         return true;
     } catch (e) {
-        sessionStorage.removeItem(SESSION_KEY);
+        if (silentRetry) {
+            // временная ошибка (сеть) — не разлогиниваем, пробуем позже
+            clearSessionRefresh();
+            sessionRefreshTimer = setTimeout(() => refreshAuthSession({ silentRetry: true }), 60000);
+            return false;
+        }
+        clearSessionRefresh();
+        localStorage.removeItem(SESSION_KEY);
         authSession = null;
         currentUser = null;
         return false;
     }
 }
+
+// При возвращении на вкладку фоновые таймеры могли «проспать» — проверяем токен.
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && authSession && isSessionExpired(authSession)) {
+        refreshAuthSession({ silentRetry: true });
+    }
+});
 
 async function loadCurrentRole() {
     currentRole = null;
@@ -166,11 +207,12 @@ async function logoutUser() {
     }
 
     stopPolling();
+    clearSessionRefresh();
     lastRemoteStamp = '';
     authSession = null;
     currentUser = null;
     currentRole = null;
     db = { ...DEFAULT_DB, deleted: emptyDeleted() };
-    sessionStorage.removeItem(SESSION_KEY);
+    localStorage.removeItem(SESSION_KEY);
     setAuthView(false);
 }

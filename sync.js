@@ -27,6 +27,8 @@ function normalizeDb(value) {
             sku: cleanValue(x && x.sku, 80),
             qty: cleanNumber(x && x.qty),
             buyPrice: cleanNumber(x && x.buyPrice),
+            supplier: cleanValue(x && x.supplier, 120),
+            paid: !(x && x.paid === false),
             updatedAt: cleanNumber(x && x.updatedAt)
         })) : [],
         sales: Array.isArray(data.sales) ? data.sales.map(x => ({
@@ -138,7 +140,8 @@ function userDbKey() {
 
 function readAuthSession() {
     try {
-        const session = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null');
+        // localStorage (а не sessionStorage) — сессия переживает закрытие вкладки
+        const session = JSON.parse(localStorage.getItem(SESSION_KEY) || 'null');
         if (!session || !session.access_token || !session.user) return null;
         return session;
     } catch (e) {

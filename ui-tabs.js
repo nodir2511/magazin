@@ -71,6 +71,12 @@ function actionModalMarkup(mode) {
       <input name="sku" readonly value="${escapeHtml(product.sku)}" placeholder="SKU">
       <input name="qty" type="number" placeholder="${tr('qty_placeholder')}" required>
       <input name="buyPrice" type="number" value="${escapeHtml(lastBuyPrice(product.sku) || '')}" placeholder="${tr('new_buy_price_placeholder')}" required>
+      <input name="supplier" value="${escapeHtml(lastSupplier(product.sku) || '')}" placeholder="${tr('supplier_placeholder')}">
+      <label class="checkboxField">
+        <input name="paid" type="checkbox" checked>
+        ${tr('arrival_paid_checkbox')}
+      </label>
+      ${opDateField()}
       <button class="actionSubmit arriveAction">${tr('add_btn')}</button>
     `;
   }
@@ -79,7 +85,7 @@ function actionModalMarkup(mode) {
     formId = 'actionSaleForm';
     fields = `
       <input name="sku" readonly value="${escapeHtml(product.sku)}" placeholder="SKU">
-      <input name="qty" type="number" placeholder="${tr('qty_placeholder')}" required>
+      <input name="qty" type="number" value="1" placeholder="${tr('qty_placeholder')}" required>
       <input name="sellPrice" type="number" value="${escapeHtml(product.salePrice || '')}" placeholder="${tr('sell_price_placeholder')}" required>
       <select name="payment">
         <option>Наличные</option>
@@ -104,6 +110,7 @@ function actionModalMarkup(mode) {
         <input name="defective" type="checkbox">
         ${tr('defective_checkbox')}
       </label>
+      ${opDateField()}
       <button class="actionSubmit returnAction">${tr('return_btn')}</button>
     `;
   }

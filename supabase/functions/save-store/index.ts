@@ -200,6 +200,8 @@ function normalizeDb(value: unknown) {
           sku: cleanText(row.sku, 80),
           qty: cleanNumber(row.qty),
           buyPrice: cleanNumber(row.buyPrice),
+          supplier: cleanText(row.supplier, 120),
+          paid: row.paid !== false,
           updatedAt: cleanNumber(row.updatedAt),
         };
       })

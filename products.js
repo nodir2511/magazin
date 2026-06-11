@@ -98,6 +98,12 @@ function lastBuyPrice(sku) {
     return lastArrival ? Number(lastArrival.buyPrice) : 0;
 }
 
+function lastSupplier(sku) {
+    const arrivals = db.arrivals.filter(x => x.sku === sku && x.supplier);
+    const lastArrival = arrivals[arrivals.length - 1];
+    return lastArrival ? lastArrival.supplier : '';
+}
+
 function saleCost(x) {
     return x.qty * (Number(x.costPrice) || avgCost(x.sku));
 }
@@ -214,9 +220,14 @@ function photoMarkup(path) {
     return `<img alt="" data-photo-path="${escapeHtml(path)}">`;
 }
 
+const PHOTO_URL_TTL_MS = 3600 * 1000; // совпадает с expiresIn подписанной ссылки
+
 async function signedPhotoUrl(path) {
     if (!isPhotoPath(path)) return '';
-    if (photoUrlCache.has(path)) return photoUrlCache.get(path);
+
+    // Кэш с временем жизни: старую (просроченную) ссылку не отдаём, а переподписываем.
+    const cached = photoUrlCache.get(path);
+    if (cached && Date.now() < cached.expiresAt) return cached.url;
 
     const response = await fetch(supabaseStorageSignEndpoint(path), {
         method: 'POST',
@@ -232,14 +243,19 @@ async function signedPhotoUrl(path) {
     if (!signedUrl) return '';
 
     const url = `${SUPABASE_CONFIG.url.replace(/\/$/, '')}/storage/v1${signedUrl}`;
-    photoUrlCache.set(path, url);
+    // запас 5 минут, чтобы не отдать ссылку на грани истечения
+    photoUrlCache.set(path, { url, expiresAt: Date.now() + PHOTO_URL_TTL_MS - 5 * 60 * 1000 });
     return url;
 }
 
 function hydrateProductPhotos() {
     document.querySelectorAll('img[data-photo-path]').forEach(async img => {
         const path = img.getAttribute('data-photo-path');
-        if (!path || img.getAttribute('src')) return;
+        if (!path) return;
+        const cached = photoUrlCache.get(path);
+        const fresh = cached && Date.now() < cached.expiresAt;
+        // уже показано и подписанная ссылка ещё жива — ничего не делаем
+        if (img.getAttribute('src') && fresh) return;
         const url = await signedPhotoUrl(path);
         if (url) img.setAttribute('src', url);
     });

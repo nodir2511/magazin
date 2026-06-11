@@ -3,7 +3,8 @@ function collectionTitle(collection) {
     arrivals: 'приход',
     sales: 'продажу',
     returns: 'возврат',
-    expenses: 'расход'
+    expenses: 'расход',
+    writeoffs: 'списание'
   }[collection] || collection;
 }
 
@@ -144,6 +145,32 @@ function editExpense(id) {
   save('Изменение расхода', `${category}: ${money(amount)}${item.comment ? `, ${item.comment}` : ''}`);
 }
 
+function editWriteoff(id) {
+  const item = db.writeoffs.find(x => x.id === id);
+  if (!item) return;
+
+  const qty = numberPrompt('Количество', item.qty);
+  if (qty === null) return;
+  const reason = prompt(tr('writeoff_reason_label'), item.reason || '');
+  if (reason === null) return;
+
+  if (qty <= 0) {
+    showNotice('Количество должно быть больше нуля');
+    return;
+  }
+
+  const available = stockOf(item.sku) + item.qty;
+  if (qty > available) {
+    showNotice(`На складе доступно только ${available}`);
+    return;
+  }
+
+  item.qty = qty;
+  item.reason = reason.trim();
+  item.updatedAt = nowMs();
+  save('Изменение списания', `${productName(item.sku)}: ${qty} шт., ${item.reason}`);
+}
+
 function arrivalsTable() {
   return `
     <h3>${tr('tbl_arrivals')}</h3>
@@ -202,6 +229,28 @@ function returnsTable() {
           <td class="rowActions">
             <button data-id="${escapeHtml(x.id)}" onclick="editReturn(Number(this.dataset.id))">${tr('edit_short')}</button>
             <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('returns', Number(this.dataset.id))">${tr('delete_btn')}</button>
+          </td>
+        </tr>
+      `).join('')}
+    </table>
+  `;
+}
+
+function writeoffsTable() {
+  return `
+    <h3>${tr('tbl_writeoffs')}</h3>
+    <table class="compactTable">
+      <tr><th>${tr('col_date')}</th><th>${tr('col_item')}</th><th>${tr('col_qty')}</th><th>${tr('col_reason')}</th><th>${tr('col_total')}</th><th></th></tr>
+      ${db.writeoffs.map(x => `
+        <tr>
+          <td>${escapeHtml(x.date)}</td>
+          <td>${escapeHtml(productName(x.sku))}</td>
+          <td>${escapeHtml(x.qty)}</td>
+          <td class="wrapCell">${escapeHtml(x.reason || '')}</td>
+          <td>${money(writeoffCost(x))}</td>
+          <td class="rowActions">
+            <button data-id="${escapeHtml(x.id)}" onclick="editWriteoff(Number(this.dataset.id))">${tr('edit_short')}</button>
+            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('writeoffs', Number(this.dataset.id))">${tr('delete_btn')}</button>
           </td>
         </tr>
       `).join('')}

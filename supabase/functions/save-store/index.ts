@@ -135,7 +135,7 @@ serve(async (req) => {
   }, 200);
 });
 
-const COLLECTIONS = ["products", "arrivals", "sales", "returns", "expenses"] as const;
+const COLLECTIONS = ["products", "arrivals", "sales", "returns", "expenses", "writeoffs"] as const;
 const TOMBSTONE_LIMIT = 1000;
 
 function collectionKey(name: string) {
@@ -168,7 +168,7 @@ function mergeStore(base: Record<string, any>, incoming: Record<string, any>) {
 }
 
 function emptyDeleted() {
-  return { products: [], arrivals: [], sales: [], returns: [], expenses: [] };
+  return { products: [], arrivals: [], sales: [], returns: [], expenses: [], writeoffs: [] };
 }
 
 function normalizeDb(value: unknown) {
@@ -245,6 +245,21 @@ function normalizeDb(value: unknown) {
           category: cleanText(row.category, 120),
           amount: cleanNumber(row.amount),
           comment: cleanText(row.comment, 300),
+          updatedAt: cleanNumber(row.updatedAt),
+        };
+      })
+      : [],
+    writeoffs: Array.isArray(data.writeoffs)
+      ? data.writeoffs.map((item) => {
+        const row = item && typeof item === "object" ? item as Record<string, unknown> : {};
+        return {
+          id: cleanNumber(row.id),
+          date: cleanText(row.date, 40),
+          dateKey: cleanText(row.dateKey, 10),
+          sku: cleanText(row.sku, 80),
+          qty: cleanNumber(row.qty),
+          reason: cleanText(row.reason, 120),
+          costPrice: cleanNumber(row.costPrice),
           updatedAt: cleanNumber(row.updatedAt),
         };
       })

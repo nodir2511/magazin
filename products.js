@@ -36,7 +36,8 @@ function stockOf(sku) {
     const arrived = db.arrivals.filter(x => x.sku === sku).reduce((s, x) => s + x.qty, 0);
     const sold = db.sales.filter(x => x.sku === sku).reduce((s, x) => s + x.qty, 0);
     const returned = db.returns.filter(x => x.sku === sku).reduce((s, x) => s + x.qty, 0);
-    return arrived + returned - sold;
+    const writtenOff = db.writeoffs.filter(x => x.sku === sku).reduce((s, x) => s + x.qty, 0);
+    return arrived + returned - sold - writtenOff;
 }
 
 function soldQtyOf(sku) {
@@ -57,7 +58,8 @@ function inventoryState(sku) {
     const events = [
         ...db.arrivals.filter(x => x.sku === sku).map(x => ({ type: 'arrival', id: x.id, qty: x.qty, price: Number(x.buyPrice) || 0 })),
         ...db.sales.filter(x => x.sku === sku).map(x => ({ type: 'sale', id: x.id, qty: x.qty, costPrice: Number(x.costPrice) || 0 })),
-        ...db.returns.filter(x => x.sku === sku).map(x => ({ type: 'return', id: x.id, qty: x.qty, costPrice: Number(x.costPrice) || 0 }))
+        ...db.returns.filter(x => x.sku === sku).map(x => ({ type: 'return', id: x.id, qty: x.qty, costPrice: Number(x.costPrice) || 0 })),
+        ...db.writeoffs.filter(x => x.sku === sku).map(x => ({ type: 'writeoff', id: x.id, qty: x.qty, costPrice: Number(x.costPrice) || 0 }))
     ].sort((a, b) => a.id - b.id);
 
     let qty = 0;
@@ -73,7 +75,7 @@ function inventoryState(sku) {
         const avg = qty > 0 ? value / qty : 0;
         const cost = e.costPrice > 0 ? e.costPrice : avg;
 
-        if (e.type === 'sale') {
+        if (e.type === 'sale' || e.type === 'writeoff') {
             qty -= e.qty;
             value -= cost * e.qty;
         } else {
@@ -109,6 +111,10 @@ function avgSoldCost(sku) {
 
 function returnCost(x) {
     return x.qty * (Number(x.costPrice) || avgSoldCost(x.sku));
+}
+
+function writeoffCost(x) {
+    return x.qty * (Number(x.costPrice) || avgCost(x.sku));
 }
 
 function inventoryTotals() {

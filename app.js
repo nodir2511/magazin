@@ -59,6 +59,19 @@ const T = {
     export_csv: 'Excel (CSV)', print_btn: 'Печать',
     ignore_low_stock: 'Не следить за остатком (товар снят с продажи)',
     sale_date: 'Дата продажи',
+    writeoff_btn: 'Списать', writeoff_title: 'Списание товара',
+    writeoff_reason_label: 'Причина списания',
+    writeoff_reason_defect: 'Брак', writeoff_reason_loss: 'Потеря',
+    writeoff_reason_theft: 'Кража', writeoff_reason_other: 'Прочее',
+    writeoff_reason_inventory: 'Инвентаризация (недостача)',
+    writeoff_reason_return_defect: 'Брак при возврате',
+    inventory_btn: 'Инвентаризация',
+    inventory_prompt: 'Фактический остаток на складе',
+    inventory_match: 'Остаток совпадает, списывать нечего.',
+    inventory_more: 'Фактический остаток больше учётного. Чтобы добавить разницу, оформите приход.',
+    defective_checkbox: 'Брак — не возвращать на склад (списать)',
+    tbl_writeoffs: 'История списаний', col_reason: 'Причина',
+    rep_writeoffs: 'Списания',
   },
   tj: {
     tab_dashboard: 'Асосӣ', tab_arrived: 'Бор омад', tab_sales: 'Фурухт',
@@ -112,6 +125,19 @@ const T = {
     export_csv: 'Excel (CSV)', print_btn: 'Чоп',
     ignore_low_stock: 'Боқимондаро назорат накардан (мол аз фурӯш бароварда шуд)',
     sale_date: 'Санаи фурӯш',
+    writeoff_btn: 'Хориҷ кардан', writeoff_title: 'Хориҷ кардани мол',
+    writeoff_reason_label: 'Сабаби хориҷкунӣ',
+    writeoff_reason_defect: 'Брак', writeoff_reason_loss: 'Гум шудан',
+    writeoff_reason_theft: 'Дуздӣ', writeoff_reason_other: 'Дигар',
+    writeoff_reason_inventory: 'Инвентаризатсия (камомад)',
+    writeoff_reason_return_defect: 'Брак ҳангоми бозгашт',
+    inventory_btn: 'Инвентаризатсия',
+    inventory_prompt: 'Боқимондаи воқеӣ дар анбор',
+    inventory_match: 'Боқимонда мувофиқ аст, чизе хориҷ намешавад.',
+    inventory_more: 'Боқимондаи воқеӣ аз ҳисобот зиёд аст. Барои фарқият бор омадро сабт кунед.',
+    defective_checkbox: 'Брак — ба анбор барнагардонед (хориҷ кунед)',
+    tbl_writeoffs: 'Таърихи хориҷкунӣ', col_reason: 'Сабаб',
+    rep_writeoffs: 'Хориҷкунӣ',
   }
 };
 
@@ -130,12 +156,12 @@ function setLang(lang) {
   render();
 }
 
-const COLLECTIONS = ['products', 'arrivals', 'sales', 'returns', 'expenses'];
+const COLLECTIONS = ['products', 'arrivals', 'sales', 'returns', 'expenses', 'writeoffs'];
 const TOMBSTONE_LIMIT = 1000;
 function emptyDeleted() {
-    return { products: [], arrivals: [], sales: [], returns: [], expenses: [] };
+    return { products: [], arrivals: [], sales: [], returns: [], expenses: [], writeoffs: [] };
 }
-const DEFAULT_DB = { products: [], arrivals: [], sales: [], returns: [], expenses: [], deleted: emptyDeleted() };
+const DEFAULT_DB = { products: [], arrivals: [], sales: [], returns: [], expenses: [], writeoffs: [], deleted: emptyDeleted() };
 function nowMs() { return Date.now(); }
 function collectionKey(collection) { return collection === 'products' ? 'sku' : 'id'; }
 const SUPABASE_TABLE = 'store_state';
@@ -153,6 +179,7 @@ let selectedPeriod = 'today';
 let productModalOpen = false;
 let productEditSku = '';
 let actionModal = null;
+let writeoffModalSku = '';
 let userModalOpen = false;
 let productSearch = { arrive: '', sale: '', return: '' };
 let syncChain = Promise.resolve();
@@ -241,11 +268,13 @@ function totals(period = 'all') {
     const sales = db.sales.filter(x => inPeriod(x, period));
     const returns = db.returns.filter(x => inPeriod(x, period));
     const expenses = db.expenses.filter(x => inPeriod(x, period));
+    const writeoffs = db.writeoffs.filter(x => inPeriod(x, period));
     const revenueRaw = sales.reduce((s, x) => s + x.qty * x.sellPrice, 0);
     const refund = returns.reduce((s, x) => s + x.refundAmount, 0);
     const revenue = revenueRaw - refund;
     const cost = sales.reduce((s, x) => s + saleCost(x), 0) - returns.reduce((s, x) => s + returnCost(x), 0);
     const exp = expenses.reduce((s, x) => s + x.amount, 0);
+    const writeoffsCost = writeoffs.reduce((s, x) => s + writeoffCost(x), 0);
     const qty = sales.reduce((s, x) => s + x.qty, 0);
     const pay = { cash: 0, card: 0, transfer: 0, debt: 0 };
 
@@ -265,7 +294,8 @@ function totals(period = 'all') {
         gross: revenue - cost,
         expenses: exp,
         returns: refund,
-        net: revenue - cost - exp,
+        writeoffs: writeoffsCost,
+        net: revenue - cost - exp - writeoffsCost,
         qty,
         avg: qty ? revenueRaw / qty : 0,
         pay
@@ -301,6 +331,9 @@ function exportCSV() {
     });
     db.expenses.filter(x => inPeriod(x, selectedPeriod)).forEach(x => {
         rows.push([x.date, 'Расход', x.category, '', x.amount, x.amount, x.comment || '']);
+    });
+    db.writeoffs.filter(x => inPeriod(x, selectedPeriod)).forEach(x => {
+        rows.push([x.date, 'Списание', productName(x.sku), x.qty, '', writeoffCost(x), x.reason || '']);
     });
 
     if (rows.length === 1) {
@@ -684,9 +717,15 @@ function renderReturns() {
       return;
     }
 
-    db.returns.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku: f.sku, qty: +f.qty, refundAmount: +f.refundAmount, costPrice: avgSoldCost(f.sku), updatedAt: nowMs() });
+    const costPrice = avgSoldCost(f.sku);
+    const defective = fd.get('defective') !== null;
+
+    db.returns.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku: f.sku, qty: +f.qty, refundAmount: +f.refundAmount, costPrice, updatedAt: nowMs() });
+    if (defective) {
+      db.writeoffs.push({ id: Date.now() + 1, date: todayDisplay(), dateKey: todayKey(), sku: f.sku, qty: +f.qty, reason: tr('writeoff_reason_return_defect'), costPrice, updatedAt: nowMs() });
+    }
     actionModal = null;
-    save('Возврат', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.refundAmount)}`);
+    save('Возврат', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.refundAmount)}${defective ? `, ${tr('writeoff_reason_return_defect')}` : ''}`);
   };
 }
 
@@ -752,11 +791,15 @@ function renderStock() {
           <td>${money(avgCost(p.sku))}</td>
           <td class="rowActions">
             <button class="editProductBtn" data-sku="${escapeHtml(p.sku)}" onclick="openProductEditFromButton(this)">${tr('edit_btn')}</button>
+            <button class="writeoffBtn" data-sku="${escapeHtml(p.sku)}" onclick="openWriteoffModal(this.dataset.sku)">${tr('writeoff_btn')}</button>
+            <button class="inventoryBtn" data-sku="${escapeHtml(p.sku)}" onclick="runInventoryCheck(this.dataset.sku)">${tr('inventory_btn')}</button>
             ${currentRole === 'admin' ? `<button class="deleteProductBtn" data-sku="${escapeHtml(p.sku)}" onclick="deleteProduct(this.dataset.sku)">${tr('delete_btn')}</button>` : ''}
           </td>
         </tr>
       `).join('')}
     </table>
+    ${writeoffsTable()}
+    ${writeoffModalMarkup()}
     ${editProduct ? `
       <div id="productEditModal" class="modal show" onclick="if (event.target === this) closeProductEditModal()">
         <div class="modalPanel userModalPanel" role="dialog" aria-modal="true" aria-labelledby="productEditTitle">
@@ -836,6 +879,104 @@ function renderStock() {
       if (submitBtn) submitBtn.disabled = false;
     }
   };
+
+  const writeoffForm = document.getElementById('writeoffForm');
+  if (writeoffForm) writeoffForm.onsubmit = e => {
+    e.preventDefault();
+    const product = db.products.find(p => p.sku === writeoffModalSku);
+    if (!product) return;
+
+    const fd = new FormData(e.target);
+    const qty = +fd.get('qty');
+    const reason = String(fd.get('reason') || '').trim();
+
+    if (!(qty > 0)) {
+      showNotice('Количество должно быть больше нуля');
+      return;
+    }
+
+    if (qty > stockOf(product.sku)) {
+      showNotice(`На складе доступно только ${stockOf(product.sku)}`);
+      return;
+    }
+
+    db.writeoffs.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku: product.sku, qty, reason: reason || tr('writeoff_reason_other'), costPrice: avgCost(product.sku), updatedAt: nowMs() });
+    writeoffModalSku = '';
+    save('Списание', `${productName(product.sku)}: ${qty} шт.${reason ? `, ${reason}` : ''}`);
+  };
+}
+
+function writeoffModalMarkup() {
+  const product = db.products.find(p => p.sku === writeoffModalSku);
+  if (!product) return '';
+
+  return `
+    <div id="writeoffModal" class="modal show" onclick="if (event.target === this) closeWriteoffModal()">
+      <div class="modalPanel" role="dialog" aria-modal="true" aria-labelledby="writeoffModalTitle">
+        <div class="modalHeader">
+          <h3 id="writeoffModalTitle">${tr('writeoff_title')}</h3>
+          <button class="closeBtn" type="button" onclick="closeWriteoffModal()" aria-label="Close">x</button>
+        </div>
+        <div class="modalProduct">
+          <div class="photo">${photoMarkup(product.photo)}</div>
+          <div>
+            <h4>${escapeHtml(product.name)}</h4>
+            <div class="muted">${escapeHtml(product.category || '')}</div>
+            <div class="muted">${tr('stock_left')}: ${stockOf(product.sku)}</div>
+          </div>
+        </div>
+        <form class="form modalForm" id="writeoffForm">
+          <input name="qty" type="number" placeholder="${tr('qty_placeholder')}" value="1" required>
+          <select name="reason">
+            <option>${tr('writeoff_reason_defect')}</option>
+            <option>${tr('writeoff_reason_loss')}</option>
+            <option>${tr('writeoff_reason_theft')}</option>
+            <option>${tr('writeoff_reason_other')}</option>
+          </select>
+          <button class="actionSubmit">${tr('writeoff_btn')}</button>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function openWriteoffModal(sku) {
+  writeoffModalSku = sku;
+  renderStock();
+  hydrateProductPhotos();
+  const qtyInput = document.querySelector('#writeoffModal input[name="qty"]');
+  if (qtyInput) qtyInput.focus();
+}
+
+function closeWriteoffModal() {
+  writeoffModalSku = '';
+  renderStock();
+  hydrateProductPhotos();
+}
+
+function runInventoryCheck(sku) {
+  const product = db.products.find(p => p.sku === sku);
+  if (!product) return;
+
+  const current = stockOf(sku);
+  const actual = numberPrompt(`${tr('inventory_prompt')} (${tr('stock_left')}: ${current})`, current);
+  if (actual === null) return;
+
+  if (actual === current) {
+    showNotice(tr('inventory_match'));
+    return;
+  }
+
+  if (actual > current) {
+    showNotice(tr('inventory_more'));
+    return;
+  }
+
+  const diff = current - actual;
+  if (!confirm(`${tr('inventory_btn')}: ${productName(sku)} ${current} -> ${actual} (-${diff}). ${tr('writeoff_btn')}?`)) return;
+
+  db.writeoffs.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku, qty: diff, reason: tr('writeoff_reason_inventory'), costPrice: avgCost(sku), updatedAt: nowMs() });
+  save('Инвентаризация', `${productName(sku)}: ${current} -> ${actual} (-${diff})`);
 }
 
 function renderReport() {
@@ -868,6 +1009,7 @@ function renderReport() {
       <div class="card"><span>${tr('rep_gross')}</span><b>${money(t.gross)}</b></div>
       <div class="card"><span>${tr('rep_expenses')}</span><b>${money(t.expenses)}</b></div>
       <div class="card"><span>${tr('rep_returns')}</span><b>${money(t.returns)}</b></div>
+      <div class="card"><span>${tr('rep_writeoffs')}</span><b>${money(t.writeoffs)}</b></div>
       <div class="card"><span>${tr('rep_net')}</span><b>${money(t.net)}</b></div>
       <div class="card"><span>${tr('rep_sold')}</span><b>${t.qty}</b></div>
       <div class="card"><span>${tr('rep_avg')}</span><b>${money(t.avg)}</b></div>
@@ -914,6 +1056,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && productModalOpen) closeProductModal();
   if (e.key === 'Escape' && productEditSku) closeProductEditModal();
   if (e.key === 'Escape' && actionModal) closeActionModal();
+  if (e.key === 'Escape' && writeoffModalSku) closeWriteoffModal();
 });
 
 function render() {

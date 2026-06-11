@@ -100,6 +100,10 @@ function actionModalMarkup(mode) {
       <input name="sku" readonly value="${escapeHtml(product.sku)}" placeholder="SKU">
       <input name="qty" type="number" placeholder="${tr('qty_placeholder')}" required>
       <input name="refundAmount" type="number" placeholder="${tr('refund_placeholder')}" required>
+      <label class="checkboxField">
+        <input name="defective" type="checkbox">
+        ${tr('defective_checkbox')}
+      </label>
       <button class="actionSubmit returnAction">${tr('return_btn')}</button>
     `;
   }

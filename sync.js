@@ -59,6 +59,16 @@ function normalizeDb(value) {
             comment: cleanValue(x && x.comment, 300),
             updatedAt: cleanNumber(x && x.updatedAt)
         })) : [],
+        writeoffs: Array.isArray(data.writeoffs) ? data.writeoffs.map(x => ({
+            id: cleanNumber(x && x.id),
+            date: cleanValue(x && x.date, 40),
+            dateKey: cleanValue(x && x.dateKey, 10),
+            sku: cleanValue(x && x.sku, 80),
+            qty: cleanNumber(x && x.qty),
+            reason: cleanValue(x && x.reason, 120),
+            costPrice: cleanNumber(x && x.costPrice),
+            updatedAt: cleanNumber(x && x.updatedAt)
+        })) : [],
         deleted: normalizeDeleted(data.deleted)
     };
 }
@@ -110,7 +120,7 @@ function tombstone(collection, id) {
 
 function hasDbData(value) {
     const data = normalizeDb(value);
-    return data.products.length || data.arrivals.length || data.sales.length || data.returns.length || data.expenses.length;
+    return data.products.length || data.arrivals.length || data.sales.length || data.returns.length || data.expenses.length || data.writeoffs.length;
 }
 
 function readLocalChanges() {

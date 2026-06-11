@@ -986,6 +986,26 @@ th.sortable:hover {
     white-space: nowrap;
 }
 
+.iconBtn {
+    padding: 6px 8px !important;
+    font-size: 16px !important;
+    line-height: 1;
+    border: 1px solid var(--line) !important;
+    border-radius: 6px;
+    background: #fff !important;
+    color: inherit !important;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.iconBtn:hover {
+    background: #f3f4f6 !important;
+}
+
+.iconBtn.danger {
+    color: var(--red) !important;
+}
+
 .search {
     margin-bottom: 12px;
 }

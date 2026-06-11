@@ -210,6 +210,7 @@ let userModalOpen = false;
 let productSearch = { arrive: '', sale: '', return: '' };
 let stockSearch = '';
 let stockSort = { key: 'name', dir: 1 };
+let stockOpModal = null; // { sku: '...', op: 'writeoff'|'inventory' }
 let syncChain = Promise.resolve();
 const photoUrlCache = new Map();
 let recoveryAccessToken = '';
@@ -933,10 +934,9 @@ function stockTableMarkup() {
           <td><span class="stockQty ${p.ignoreLowStock ? 'stockMuted' : stockClass(stockOf(p.sku))}">${stockOf(p.sku)}</span></td>
           <td>${money(avgCost(p.sku))}</td>
           <td class="rowActions">
-            <button class="editProductBtn" data-sku="${escapeHtml(p.sku)}" onclick="openProductEditFromButton(this)">${tr('edit_btn')}</button>
-            <button class="writeoffBtn" data-sku="${escapeHtml(p.sku)}" onclick="openWriteoffModal(this.dataset.sku)">${tr('writeoff_btn')}</button>
-            <button class="inventoryBtn" data-sku="${escapeHtml(p.sku)}" onclick="runInventoryCheck(this.dataset.sku)">${tr('inventory_btn')}</button>
-            ${currentRole === 'admin' ? `<button class="deleteProductBtn" data-sku="${escapeHtml(p.sku)}" onclick="deleteProduct(this.dataset.sku)">${tr('delete_btn')}</button>` : ''}
+            <button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="${tr('edit_btn')}" onclick="openProductEditFromButton(this)">⚙</button>
+            <button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="${tr('inventory_btn')}|${tr('writeoff_btn')}" onclick="openStockOpModal(this.dataset.sku)">📋</button>
+            ${currentRole === 'admin' ? `<button class="iconBtn danger" data-sku="${escapeHtml(p.sku)}" title="${tr('delete_btn')}" onclick="deleteProduct(this.dataset.sku)">✕</button>` : ''}
           </td>
         </tr>
       `).join('')}
@@ -1133,6 +1133,53 @@ function closeWriteoffModal() {
   hydrateProductPhotos();
 }
 
+function openStockOpModal(sku) {
+  stockOpModal = { sku };
+  renderStockOpModal();
+}
+
+function closeStockOpModal() {
+  stockOpModal = null;
+  renderStockOpModal();
+}
+
+function renderStockOpModal() {
+  const mount = document.getElementById('stockOpModalMount') || (() => {
+    const div = document.createElement('div');
+    div.id = 'stockOpModalMount';
+    document.body.appendChild(div);
+    return div;
+  })();
+
+  if (!stockOpModal) { mount.innerHTML = ''; return; }
+
+  const product = db.products.find(p => p.sku === stockOpModal.sku);
+  if (!product) { stockOpModal = null; mount.innerHTML = ''; return; }
+
+  mount.innerHTML = `
+    <div class="modal show" onclick="if (event.target === this) closeStockOpModal()">
+      <div class="modalPanel" role="dialog" aria-modal="true" aria-labelledby="stockOpTitle">
+        <div class="modalHeader">
+          <h3 id="stockOpTitle">${escapeHtml(product.name)}</h3>
+          <button class="closeBtn" type="button" onclick="closeStockOpModal()" aria-label="Close">x</button>
+        </div>
+        <div class="modalProduct">
+          <div class="photo">${photoMarkup(product.photo)}</div>
+          <div>
+            <h4>${escapeHtml(product.name)}</h4>
+            <div class="muted">${escapeHtml(product.category || '')}</div>
+            <div class="muted">${tr('stock_left')}: ${stockOf(product.sku)}</div>
+          </div>
+        </div>
+        <div style="padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+          <button class="actionSubmit" onclick="openWriteoffModal('${escapeHtml(stockOpModal.sku)}'); closeStockOpModal();">${tr('writeoff_btn')}</button>
+          <button class="actionSubmit" onclick="runInventoryCheck('${escapeHtml(stockOpModal.sku)}'); closeStockOpModal();">${tr('inventory_btn')}</button>
+        </div>
+      </div>
+    </div>`;
+  hydrateProductPhotos();
+}
+
 function runInventoryCheck(sku) {
   const product = db.products.find(p => p.sku === sku);
   if (!product) return;
@@ -1251,6 +1298,7 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && actionModal) closeActionModal();
   if (e.key === 'Escape' && writeoffModalSku) closeWriteoffModal();
   if (e.key === 'Escape' && editModal) closeEditModal();
+  if (e.key === 'Escape' && stockOpModal) closeStockOpModal();
 });
 
 const PAGE_RENDERERS = {

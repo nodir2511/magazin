@@ -1165,12 +1165,11 @@ th.sortable:hover {
     }
     .stockTable.compactTable th:nth-child(4),
     .stockTable.compactTable td:nth-child(4) {
-        width: 60px;
+        width: 50px;
     }
-    /* Средняя закупка — скрываем на мобильном */
     .stockTable.compactTable th:nth-child(5),
     .stockTable.compactTable td:nth-child(5) {
-        display: none;
+        width: 50px;
     }
     .stockTable.compactTable th:last-child,
     .stockTable.compactTable td:last-child {

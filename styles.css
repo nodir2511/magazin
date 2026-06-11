@@ -976,6 +976,16 @@ th.sortable:hover {
     font-size: 12px;
 }
 
+.stockTable .rowActions {
+    gap: 4px;
+}
+
+.stockTable .rowActions button {
+    padding: 5px 6px;
+    font-size: 11px;
+    white-space: nowrap;
+}
+
 .search {
     margin-bottom: 12px;
 }

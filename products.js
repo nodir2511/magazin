@@ -342,3 +342,13 @@ function productName(sku) {
   const product = db.products.find(p => p.sku === sku);
   return product ? product.name || sku : sku;
 }
+
+function productPhoto(sku) {
+  const product = db.products.find(p => p.sku === sku);
+  return product ? product.photo : '';
+}
+
+// Ячейка таблицы: мини-фото товара + название
+function itemCell(sku) {
+  return `<div class="itemCell"><div class="itemPhoto photo">${photoMarkup(productPhoto(sku))}</div><span>${escapeHtml(productName(sku))}</span></div>`;
+}

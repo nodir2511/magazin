@@ -305,7 +305,7 @@ function arrivalsTable() {
       ${visible.map(x => `
         <tr>
           <td>${escapeHtml(x.date)}</td>
-          <td>${escapeHtml(productName(x.sku))}</td>
+          <td>${itemCell(x.sku)}</td>
           <td class="wrapCell">${escapeHtml(x.supplier || '')}${x.paid === false ? ` <span class="debtTag">${tr('arrival_debt_label')}</span>` : ''}</td>
           <td>${escapeHtml(x.qty)}</td>
           <td>${money(x.buyPrice)}</td>
@@ -330,7 +330,7 @@ function salesTable() {
       ${visible.map(x => `
         <tr>
           <td>${escapeHtml(x.date)}</td>
-          <td>${escapeHtml(productName(x.sku))}</td>
+          <td>${itemCell(x.sku)}</td>
           <td>${escapeHtml(x.qty)}</td>
           <td>${money(x.sellPrice)}</td>
           <td>${escapeHtml(x.payment || '')}</td>
@@ -354,7 +354,7 @@ function returnsTable() {
       ${visible.map(x => `
         <tr>
           <td>${escapeHtml(x.date)}</td>
-          <td>${escapeHtml(productName(x.sku))}</td>
+          <td>${itemCell(x.sku)}</td>
           <td>${escapeHtml(x.qty)}</td>
           <td>${money(x.refundAmount)}</td>
           <td class="rowActions">
@@ -377,7 +377,7 @@ function writeoffsTable() {
       ${visible.map(x => `
         <tr>
           <td>${escapeHtml(x.date)}</td>
-          <td>${escapeHtml(productName(x.sku))}</td>
+          <td>${itemCell(x.sku)}</td>
           <td>${escapeHtml(x.qty)}</td>
           <td class="wrapCell">${escapeHtml(x.reason || '')}</td>
           <td>${money(writeoffCost(x))}</td>

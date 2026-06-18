@@ -1173,7 +1173,7 @@ function renderStockOpModal() {
             <div class="muted">${tr('stock_left')}: ${stockOf(product.sku)}</div>
           </div>
         </div>
-        <div style="padding: 16px; display: flex; flex-direction: column; gap: 10px;">
+        <div class="stockOpActions">
           <button class="actionSubmit" onclick="openWriteoffModal('${escapeHtml(stockOpModal.sku)}'); closeStockOpModal();">${tr('writeoff_btn')}</button>
           <button class="actionSubmit" onclick="runInventoryCheck('${escapeHtml(stockOpModal.sku)}'); closeStockOpModal();">${tr('inventory_btn')}</button>
         </div>

@@ -211,6 +211,7 @@ let productSearch = { arrive: '', sale: '', return: '' };
 let stockSearch = '';
 let stockSort = { key: 'name', dir: 1 };
 let stockOpModal = null; // { sku: '...', op: 'writeoff'|'inventory' }
+let productHistoryModal = null; // { sku: '...' }
 let syncChain = Promise.resolve();
 const photoUrlCache = new Map();
 let recoveryAccessToken = '';
@@ -935,6 +936,7 @@ function stockTableMarkup() {
           <td>${money(avgCost(p.sku))}</td>
           <td class="rowActions">
             <button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="${tr('edit_btn')}" onclick="openProductEditFromButton(this)">⚙</button>
+            <button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="История товара" onclick="openProductHistory(this.dataset.sku)">📜</button>
             <button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="${tr('inventory_btn')}|${tr('writeoff_btn')}" onclick="openStockOpModal(this.dataset.sku)">📋</button>
             ${currentRole === 'admin' ? `<button class="iconBtn danger" data-sku="${escapeHtml(p.sku)}" title="${tr('delete_btn')}" onclick="deleteProduct(this.dataset.sku)">✕</button>` : ''}
           </td>
@@ -1151,10 +1153,10 @@ function renderStockOpModal() {
     return div;
   })();
 
-  if (!stockOpModal) { mount.innerHTML = ''; return; }
+  if (!stockOpModal) { mount.innerHTML = ''; updateBodyOverflow(); return; }
 
   const product = db.products.find(p => p.sku === stockOpModal.sku);
-  if (!product) { stockOpModal = null; mount.innerHTML = ''; return; }
+  if (!product) { stockOpModal = null; mount.innerHTML = ''; updateBodyOverflow(); return; }
 
   mount.innerHTML = `
     <div class="modal show" onclick="if (event.target === this) closeStockOpModal()">
@@ -1178,6 +1180,161 @@ function renderStockOpModal() {
       </div>
     </div>`;
   hydrateProductPhotos();
+  updateBodyOverflow();
+}
+
+function openProductHistory(sku) {
+  productHistoryModal = { sku };
+  renderProductHistory();
+}
+
+function closeProductHistory() {
+  productHistoryModal = null;
+  renderProductHistory();
+}
+
+function renderProductHistory() {
+  const mount = document.getElementById('productHistoryMount') || (() => {
+    const div = document.createElement('div');
+    div.id = 'productHistoryMount';
+    document.body.appendChild(div);
+    return div;
+  })();
+
+  if (!productHistoryModal) { mount.innerHTML = ''; updateBodyOverflow(); return; }
+
+  const product = db.products.find(p => p.sku === productHistoryModal.sku);
+  if (!product) { productHistoryModal = null; mount.innerHTML = ''; updateBodyOverflow(); return; }
+
+  const arrivals = db.arrivals.filter(x => x.sku === product.sku).sort((a, b) => b.id - a.id);
+  const sales = db.sales.filter(x => x.sku === product.sku).sort((a, b) => b.id - a.id);
+  const returns = db.returns.filter(x => x.sku === product.sku).sort((a, b) => b.id - a.id);
+  const writeoffs = db.writeoffs.filter(x => x.sku === product.sku).sort((a, b) => b.id - a.id);
+
+  const historyHTML = `
+    <div class="historySection">
+      <h4>Приходы (${arrivals.length})</h4>
+      ${arrivals.length === 0 ? '<p class="muted">Приходов нет</p>' : `
+        <table class="historyTable">
+          <tr><th>Фото</th><th>Дата</th><th>Кол-во</th><th>Цена</th><th>Сумма</th><th>Поставщик</th><th></th></tr>
+          ${arrivals.map(a => `
+            <tr>
+              <td><div class="historyPhoto photo">${photoMarkup(product.photo)}</div></td>
+              <td>${escapeHtml(a.dateKey || a.date)}</td>
+              <td>${a.qty}</td>
+              <td>${money(a.buyPrice)}</td>
+              <td>${money(a.qty * a.buyPrice)}</td>
+              <td>${escapeHtml(a.supplier || '')}</td>
+              <td class="rowActions">
+                <button class="iconBtn" onclick="editArrival(${a.id})" title="Редактировать">✏️</button>
+                <button class="iconBtn danger" onclick="deleteArrival(${a.id})" title="Удалить">✕</button>
+              </td>
+            </tr>
+          `).join('')}
+        </table>
+      `}
+    </div>
+
+    <div class="historySection">
+      <h4>Продажи (${sales.length})</h4>
+      ${sales.length === 0 ? '<p class="muted">Продаж нет</p>' : `
+        <table class="historyTable">
+          <tr><th>Фото</th><th>Дата</th><th>Кол-во</th><th>Цена</th><th>Сумма</th><th>Способ оплаты</th><th></th></tr>
+          ${sales.map(s => `
+            <tr>
+              <td><div class="historyPhoto photo">${photoMarkup(product.photo)}</div></td>
+              <td>${escapeHtml(s.saleDate || s.dateKey || s.date)}</td>
+              <td>${s.qty}</td>
+              <td>${money(s.sellPrice)}</td>
+              <td>${money(s.qty * s.sellPrice)}</td>
+              <td>${escapeHtml(s.payment || '')}</td>
+              <td class="rowActions">
+                <button class="iconBtn" onclick="editSale(${s.id})" title="Редактировать">✏️</button>
+                <button class="iconBtn danger" onclick="deleteSale(${s.id})" title="Удалить">✕</button>
+              </td>
+            </tr>
+          `).join('')}
+        </table>
+      `}
+    </div>
+
+    <div class="historySection">
+      <h4>Возвраты (${returns.length})</h4>
+      ${returns.length === 0 ? '<p class="muted">Возвратов нет</p>' : `
+        <table class="historyTable">
+          <tr><th>Фото</th><th>Дата</th><th>Кол-во</th><th>Возврат</th><th>Статус</th><th></th></tr>
+          ${returns.map(r => `
+            <tr>
+              <td><div class="historyPhoto photo">${photoMarkup(product.photo)}</div></td>
+              <td>${escapeHtml(r.dateKey || r.date)}</td>
+              <td>${r.qty}</td>
+              <td>${money(r.refundAmount)}</td>
+              <td>${r.defective ? 'Брак' : 'Обычный'}</td>
+              <td class="rowActions">
+                <button class="iconBtn" onclick="editReturn(${r.id})" title="Редактировать">✏️</button>
+                <button class="iconBtn danger" onclick="deleteReturn(${r.id})" title="Удалить">✕</button>
+              </td>
+            </tr>
+          `).join('')}
+        </table>
+      `}
+    </div>
+
+    <div class="historySection">
+      <h4>Списания (${writeoffs.length})</h4>
+      ${writeoffs.length === 0 ? '<p class="muted">Списаний нет</p>' : `
+        <table class="historyTable">
+          <tr><th>Фото</th><th>Дата</th><th>Кол-во</th><th>Причина</th><th></th></tr>
+          ${writeoffs.map(w => `
+            <tr>
+              <td><div class="historyPhoto photo">${photoMarkup(product.photo)}</div></td>
+              <td>${escapeHtml(w.dateKey || w.date)}</td>
+              <td>${w.qty}</td>
+              <td>${escapeHtml(w.reason || '')}</td>
+              <td class="rowActions">
+                <button class="iconBtn danger" onclick="deleteWriteoff(${w.id})" title="Удалить">✕</button>
+              </td>
+            </tr>
+          `).join('')}
+        </table>
+      `}
+    </div>
+  `;
+
+  mount.innerHTML = `
+    <div class="modal show" style="z-index: 18;" onclick="if (event.target === this) closeProductHistory()">
+      <div class="modalPanel" role="dialog" aria-modal="true" aria-labelledby="productHistoryTitle" style="max-width: 900px; max-height: 80vh; overflow-y: auto;">
+        <div class="modalHeader" style="position: sticky; top: 0; background: white; z-index: 10;">
+          <h3 id="productHistoryTitle">История: ${escapeHtml(product.name)} (${escapeHtml(product.sku)})</h3>
+          <button class="closeBtn" type="button" onclick="closeProductHistory()" aria-label="Close">x</button>
+        </div>
+        <div style="padding: 16px;">
+          ${historyHTML}
+        </div>
+      </div>
+    </div>`;
+  hydrateProductPhotos();
+  updateBodyOverflow();
+}
+
+function deleteArrival(id) {
+  deleteRecord('arrivals', id);
+  renderProductHistory();
+}
+
+function deleteSale(id) {
+  deleteRecord('sales', id);
+  renderProductHistory();
+}
+
+function deleteReturn(id) {
+  deleteRecord('returns', id);
+  renderProductHistory();
+}
+
+function deleteWriteoff(id) {
+  deleteRecord('writeoffs', id);
+  renderProductHistory();
 }
 
 function runInventoryCheck(sku) {
@@ -1324,7 +1481,9 @@ function activeTabId() {
 function render() {
   const renderer = PAGE_RENDERERS[activeTabId()];
   if (renderer) renderer();
+  if (productHistoryModal) renderProductHistory();
   hydrateProductPhotos();
+  updateBodyOverflow();
 }
 
 async function initApp() {
@@ -1377,6 +1536,11 @@ async function initApp() {
   } else {
     setAuthView(false);
   }
+}
+
+function updateBodyOverflow() {
+  const hasModal = document.querySelector('.modal.show') || document.querySelector('.noticeModal.show');
+  document.body.style.overflow = hasModal ? 'hidden' : '';
 }
 
 // Периодически переподписываем фото даже без перерисовки — ссылки живут ~час.

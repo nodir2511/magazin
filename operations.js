@@ -167,7 +167,7 @@ function renderEditModal() {
   const mount = document.getElementById('editModalMount');
   if (!mount) return;
 
-  if (!editModal) { mount.innerHTML = ''; return; }
+  if (!editModal) { mount.innerHTML = ''; updateBodyOverflow(); return; }
 
   const item = db[editModal.collection].find(x => x.id === editModal.id);
   if (!item) { editModal = null; mount.innerHTML = ''; return; }
@@ -190,6 +190,7 @@ function renderEditModal() {
   if (form) form.onsubmit = submitEditModal;
   const first = mount.querySelector('input[name="qty"], input[name="category"]');
   if (first) first.focus();
+  updateBodyOverflow();
 }
 
 function applyOpDate(item, dateKey) {

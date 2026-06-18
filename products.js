@@ -266,6 +266,8 @@ function productCards(mode, query = '') {
 
     return db.products
         .filter(p => {
+            // В продаже не показываем товары, которых нет на складе
+            if (mode === 'sale' && stockOf(p.sku) <= 0) return false;
             const buyPrice = lastBuyPrice(p.sku);
             return [
                 p.name,
@@ -279,6 +281,7 @@ function productCards(mode, query = '') {
       <div class="product" data-mode="${escapeHtml(mode)}" data-sku="${escapeHtml(p.sku)}" onclick="selectProductFromCard(this)">
         <div class="photo">${photoMarkup(p.photo)}</div>
         <h4>${escapeHtml(p.name)}</h4>
+        <div class="productCode">${escapeHtml(p.sku)}</div>
         ${mode === 'sale' && p.salePrice ? `<div class="salePriceBig">${money(p.salePrice)}</div>` : ''}
         <div class="muted">${escapeHtml(p.category || '')}</div>
         <div class="muted">${tr('stock_left')}: ${stockOf(p.sku)}</div>

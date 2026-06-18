@@ -301,12 +301,11 @@ function arrivalsTable() {
   return `
     <h3>${tr('tbl_arrivals')}</h3>
     <table class="compactTable">
-      <tr><th>${tr('col_date')}</th><th>${tr('col_item')}</th><th>${tr('col_supplier')}</th><th>${tr('col_qty')}</th><th>${tr('col_price')}</th><th>${tr('col_total')}</th><th></th></tr>
+      <tr><th>${tr('col_date')}</th><th>${tr('col_item')}</th><th>${tr('col_qty')}</th><th>${tr('col_price')}</th><th>${tr('col_total')}</th><th></th></tr>
       ${visible.map(x => `
         <tr>
           <td>${escapeHtml(x.date)}</td>
-          <td>${itemCell(x.sku)}</td>
-          <td class="wrapCell">${escapeHtml(x.supplier || '')}${x.paid === false ? ` <span class="debtTag">${tr('arrival_debt_label')}</span>` : ''}</td>
+          <td>${itemCell(x.sku)}${x.paid === false ? ` <span class="debtTag">${tr('arrival_debt_label')}</span>` : ''}</td>
           <td>${escapeHtml(x.qty)}</td>
           <td>${money(x.buyPrice)}</td>
           <td>${money(x.qty * x.buyPrice)}</td>
@@ -316,7 +315,7 @@ function arrivalsTable() {
           </td>
         </tr>
       `).join('')}
-      ${showMoreRow('arrivals', moreCount, 7)}
+      ${showMoreRow('arrivals', moreCount, 6)}
     </table>
   `;
 }

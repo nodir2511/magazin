@@ -936,8 +936,8 @@ function stockTableMarkup() {
           <td>${money(avgCost(p.sku))}</td>
           <td class="rowActions">
             <button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="${tr('edit_btn')}" onclick="openProductEditFromButton(this)">⚙</button>
-            <button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="История товара" onclick="openProductHistory(this.dataset.sku)">📜</button>
-            <button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="${tr('inventory_btn')}|${tr('writeoff_btn')}" onclick="openStockOpModal(this.dataset.sku)">📋</button>
+            ${currentRole === 'admin' ? `<button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="История товара" onclick="openProductHistory(this.dataset.sku)">📜</button>` : ''}
+            ${currentRole === 'admin' ? `<button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="${tr('inventory_btn')}|${tr('writeoff_btn')}" onclick="openStockOpModal(this.dataset.sku)">📋</button>` : ''}
             ${currentRole === 'admin' ? `<button class="iconBtn danger" data-sku="${escapeHtml(p.sku)}" title="${tr('delete_btn')}" onclick="deleteProduct(this.dataset.sku)">✕</button>` : ''}
           </td>
         </tr>
@@ -1136,6 +1136,7 @@ function closeWriteoffModal() {
 }
 
 function openStockOpModal(sku) {
+  if (currentRole !== 'admin') { showNotice('Доступно только админу.'); return; }
   stockOpModal = { sku };
   renderStockOpModal();
 }
@@ -1184,6 +1185,7 @@ function renderStockOpModal() {
 }
 
 function openProductHistory(sku) {
+  if (currentRole !== 'admin') { showNotice('Доступно только админу.'); return; }
   productHistoryModal = { sku };
   renderProductHistory();
 }

@@ -1244,6 +1244,16 @@ th.sortable:hover {
     .rowActions button {
         white-space: nowrap;
     }
+    /* Таблицы истории товара: горизонтальный скролл вместо обрезки */
+    .historyTable {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+    .historyTable th,
+    .historyTable td {
+        white-space: nowrap;
+    }
     .compactTable {
         display: table;
         table-layout: fixed;

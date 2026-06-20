@@ -52,15 +52,21 @@ function canReturnQty(sku) {
     return soldQtyOf(sku) - returnedQtyOf(sku);
 }
 
-// Скользящая средняя себестоимость: проигрываем приходы/продажи/возвраты по времени (id),
-// при каждом приходе средняя пересчитывается заново — старые закупочные цены не "тянут" текущую себестоимость.
+// Скользящая средняя себестоимость: проигрываем приходы/продажи/возвраты по ДАТЕ операции (не по id —
+// приход можно внести задним числом), при каждом приходе средняя пересчитывается заново.
+// Себестоимость продажи/списания/возврата всегда берётся "живой" текущей средней на момент события в
+// ленте, а не замороженным costPrice записи — иначе случайно неверно зафиксированная при создании
+// себестоимость продажи навсегда искажает среднюю по остатку.
 function inventoryState(sku) {
     const events = [
-        ...db.arrivals.filter(x => x.sku === sku).map(x => ({ type: 'arrival', id: x.id, qty: x.qty, price: Number(x.buyPrice) || 0 })),
-        ...db.sales.filter(x => x.sku === sku).map(x => ({ type: 'sale', id: x.id, qty: x.qty, costPrice: Number(x.costPrice) || 0 })),
-        ...db.returns.filter(x => x.sku === sku).map(x => ({ type: 'return', id: x.id, qty: x.qty, costPrice: Number(x.costPrice) || 0 })),
-        ...db.writeoffs.filter(x => x.sku === sku).map(x => ({ type: 'writeoff', id: x.id, qty: x.qty, costPrice: Number(x.costPrice) || 0 }))
-    ].sort((a, b) => a.id - b.id);
+        ...db.arrivals.filter(x => x.sku === sku).map(x => ({ type: 'arrival', id: x.id, dateKey: recordDate(x), qty: x.qty, price: Number(x.buyPrice) || 0 })),
+        ...db.sales.filter(x => x.sku === sku).map(x => ({ type: 'sale', id: x.id, dateKey: recordDate(x), qty: x.qty })),
+        ...db.returns.filter(x => x.sku === sku).map(x => ({ type: 'return', id: x.id, dateKey: recordDate(x), qty: x.qty })),
+        ...db.writeoffs.filter(x => x.sku === sku).map(x => ({ type: 'writeoff', id: x.id, dateKey: recordDate(x), qty: x.qty }))
+    ].sort((a, b) => {
+        if (a.dateKey !== b.dateKey) return a.dateKey < b.dateKey ? -1 : 1;
+        return a.id - b.id;
+    });
 
     let qty = 0;
     let value = 0;
@@ -73,14 +79,13 @@ function inventoryState(sku) {
         }
 
         const avg = qty > 0 ? value / qty : 0;
-        const cost = e.costPrice > 0 ? e.costPrice : avg;
 
         if (e.type === 'sale' || e.type === 'writeoff') {
             qty -= e.qty;
-            value -= cost * e.qty;
+            value -= avg * e.qty;
         } else {
             qty += e.qty;
-            value += cost * e.qty;
+            value += avg * e.qty;
         }
     });
 

@@ -54,9 +54,9 @@ function canReturnQty(sku) {
 
 // Скользящая средняя себестоимость: проигрываем приходы/продажи/возвраты по ДАТЕ операции (не по id —
 // приход можно внести задним числом), при каждом приходе средняя пересчитывается заново.
-// Себестоимость продажи/списания/возврата всегда берётся "живой" текущей средней на момент события в
-// ленте, а не замороженным costPrice записи — иначе случайно неверно зафиксированная при создании
-// себестоимость продажи навсегда искажает среднюю по остатку.
+// costAt — себестоимость, использованная для конкретной продажи/возврата/списания в момент её
+// обработки в ленте; и остаток, и отчёты о прибыли берут её отсюда, а не замороженный costPrice
+// записи — иначе неверно зафиксированная при создании себестоимость навсегда искажает оба расчёта.
 function inventoryState(sku) {
     const events = [
         ...db.arrivals.filter(x => x.sku === sku).map(x => ({ type: 'arrival', id: x.id, dateKey: recordDate(x), qty: x.qty, price: Number(x.buyPrice) || 0 })),
@@ -70,6 +70,7 @@ function inventoryState(sku) {
 
     let qty = 0;
     let value = 0;
+    const costAt = new Map();
 
     events.forEach(e => {
         if (e.type === 'arrival') {
@@ -79,6 +80,7 @@ function inventoryState(sku) {
         }
 
         const avg = qty > 0 ? value / qty : 0;
+        costAt.set(e.id, avg);
 
         if (e.type === 'sale' || e.type === 'writeoff') {
             qty -= e.qty;
@@ -89,7 +91,7 @@ function inventoryState(sku) {
         }
     });
 
-    return { qty, value };
+    return { qty, value, costAt };
 }
 
 function avgCost(sku) {
@@ -109,8 +111,12 @@ function lastSupplier(sku) {
     return lastArrival ? lastArrival.supplier : '';
 }
 
+function eventCost(x) {
+    return inventoryState(x.sku).costAt.get(x.id) ?? avgCost(x.sku);
+}
+
 function saleCost(x) {
-    return x.qty * (Number(x.costPrice) || avgCost(x.sku));
+    return x.qty * eventCost(x);
 }
 
 function avgSoldCost(sku) {
@@ -121,11 +127,11 @@ function avgSoldCost(sku) {
 }
 
 function returnCost(x) {
-    return x.qty * (Number(x.costPrice) || avgSoldCost(x.sku));
+    return x.qty * eventCost(x);
 }
 
 function writeoffCost(x) {
-    return x.qty * (Number(x.costPrice) || avgCost(x.sku));
+    return x.qty * eventCost(x);
 }
 
 function inventoryTotals() {

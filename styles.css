@@ -599,6 +599,7 @@ select {
     color: #374151;
     font-size: 14px;
     font-weight: 700;
+    min-width: 0;
 }
 
 .fieldLabel span {
@@ -609,6 +610,7 @@ select {
 
 .fieldLabel input {
     width: 100%;
+    min-width: 0;
 }
 
 .productEditForm {

@@ -40,7 +40,7 @@ const T = {
     save_product_btn: 'Сохранить товар',
     period_today: 'Сегодня', period_week: 'Неделя', period_month: 'Месяц',
     period_quarter: 'Квартал', period_year: 'Год', period_all: 'Всё',
-    period_custom: 'От даты',
+    period_custom: 'От даты', period_from: 'От', period_to: 'До',
     rep_revenue: 'Выручка', rep_cost: 'Себестоимость', rep_gross: 'Валовая прибыль',
     rep_expenses: 'Расходы', rep_returns: 'Возвраты', rep_net: 'Чистая прибыль',
     rep_sold: 'Продано', rep_avg: 'Средний чек', rep_in_stock: 'Товаров на складе',
@@ -119,7 +119,7 @@ const T = {
     save_product_btn: 'Мол нигоҳ доштан',
     period_today: 'Имрӯз', period_week: 'Ҳафта', period_month: 'Моҳ',
     period_quarter: 'Чоряк', period_year: 'Сол', period_all: 'Ҳама',
-    period_custom: 'Аз сана',
+    period_custom: 'Аз сана', period_from: 'Аз', period_to: 'То',
     rep_revenue: 'Даромад', rep_cost: 'Арзиши аслӣ', rep_gross: 'Фоидаи умумӣ',
     rep_expenses: 'Харочот', rep_returns: 'Бозгаштҳо', rep_net: 'Фоидаи соф',
     rep_sold: 'Фурӯхта', rep_avg: 'Чеки миёна', rep_in_stock: 'Мол дар анбор',
@@ -1365,6 +1365,11 @@ function runInventoryCheck(sku) {
 }
 
 function renderReport() {
+  const oldDateFrom = document.getElementById('dateFrom');
+  const oldDateTo = document.getElementById('dateTo');
+  const customFrom = oldDateFrom ? oldDateFrom.value : '';
+  const customTo = oldDateTo ? oldDateTo.value : '';
+
   const t = totals(selectedPeriod);
   const inventory = inventoryTotals();
   const cf = cashFlow(selectedPeriod);
@@ -1386,8 +1391,12 @@ function renderReport() {
       <button onclick="setPeriod('custom')" class="${selectedPeriod === 'custom' ? 'active' : ''}">${tr('period_custom')}</button>
     </div>
     <div class="${selectedPeriod === 'custom' ? 'form' : 'hidden'}">
-      <input type="date" id="dateFrom" onchange="renderReport()">
-      <input type="date" id="dateTo" onchange="renderReport()">
+      <label class="fieldLabel">${tr('period_from')}
+        <input type="date" id="dateFrom" value="${escapeHtml(customFrom)}" onblur="renderReport()">
+      </label>
+      <label class="fieldLabel">${tr('period_to')}
+        <input type="date" id="dateTo" value="${escapeHtml(customTo)}" onblur="renderReport()">
+      </label>
     </div>
     <div class="grid stats">
       <div class="card"><span>${tr('rep_revenue')}</span><b>${money(t.revenue)}</b></div>

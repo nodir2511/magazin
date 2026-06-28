@@ -42,7 +42,7 @@ function pagedRecords(collection) {
 function showMoreRow(collection, moreCount, colspan) {
   if (moreCount <= 0) return '';
   return `<tr><td colspan="${colspan}" class="showMoreCell">
-    <button class="showMoreBtn" onclick="showMore('${collection}')">${tr('show_more')} (${moreCount})</button>
+    <button class="showMoreBtn" data-act="showMore" data-arg="${collection}">${tr('show_more')} (${moreCount})</button>
   </td></tr>`;
 }
 
@@ -68,6 +68,7 @@ function numberPrompt(label, value) {
 }
 
 function deleteRecord(collection, id) {
+  if (currentRole !== 'admin') { showNotice('Удалять записи может только админ.'); return; }
   const item = db[collection].find(x => x.id === id);
   if (!item) return;
 
@@ -97,8 +98,18 @@ function editExpense(id) { openEditModal('expenses', id); }
 function editWriteoff(id) { openEditModal('writeoffs', id); }
 
 function openEditModal(collection, id) {
+  if (currentRole !== 'admin') { showNotice('Редактировать записи может только админ.'); return; }
   editModal = { collection, id };
   renderEditModal();
+}
+
+// Кнопки правки/удаления строки — только для админа.
+// Менеджер может лишь добавлять новые записи.
+function rowActions(editFn, collection, id) {
+  if (currentRole !== 'admin') return '';
+  const dataId = escapeHtml(id);
+  return `<button data-act="${editFn}" data-id="${dataId}">${tr('edit_short')}</button>
+            <button data-act="deleteRecord" data-collection="${collection}" data-id="${dataId}">${tr('delete_btn')}</button>`;
 }
 
 function closeEditModal() {
@@ -173,11 +184,11 @@ function renderEditModal() {
   if (!item) { editModal = null; mount.innerHTML = ''; return; }
 
   mount.innerHTML = `
-    <div class="modal show" onclick="if (event.target === this) closeEditModal()">
+    <div class="modal show" data-backdrop="closeEditModal">
       <div class="modalPanel" role="dialog" aria-modal="true" aria-labelledby="editModalTitle">
         <div class="modalHeader">
           <h3 id="editModalTitle">${tr(editModalTitleKey(editModal.collection))}</h3>
-          <button class="closeBtn" type="button" onclick="closeEditModal()" aria-label="Close">x</button>
+          <button class="closeBtn" type="button" data-act="closeEditModal" aria-label="Close">x</button>
         </div>
         <form class="form modalForm" id="editModalForm">
           ${editModalFields(editModal.collection, item)}
@@ -309,10 +320,7 @@ function arrivalsTable() {
           <td>${escapeHtml(x.qty)}</td>
           <td>${money(x.buyPrice)}</td>
           <td>${money(x.qty * x.buyPrice)}</td>
-          <td class="rowActions">
-            <button data-id="${escapeHtml(x.id)}" onclick="editArrival(Number(this.dataset.id))">${tr('edit_short')}</button>
-            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('arrivals', Number(this.dataset.id))">${tr('delete_btn')}</button>
-          </td>
+          <td class="rowActions">${rowActions('editArrival', 'arrivals', x.id)}</td>
         </tr>
       `).join('')}
       ${showMoreRow('arrivals', moreCount, 6)}
@@ -333,10 +341,7 @@ function salesTable() {
           <td>${escapeHtml(x.qty)}</td>
           <td>${money(x.sellPrice)}</td>
           <td>${escapeHtml(x.payment || '')}</td>
-          <td class="rowActions">
-            <button data-id="${escapeHtml(x.id)}" onclick="editSale(Number(this.dataset.id))">${tr('edit_short')}</button>
-            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('sales', Number(this.dataset.id))">${tr('delete_btn')}</button>
-          </td>
+          <td class="rowActions">${rowActions('editSale', 'sales', x.id)}</td>
         </tr>
       `).join('')}
       ${showMoreRow('sales', moreCount, 6)}
@@ -356,10 +361,7 @@ function returnsTable() {
           <td>${itemCell(x.sku)}</td>
           <td>${escapeHtml(x.qty)}</td>
           <td>${money(x.refundAmount)}</td>
-          <td class="rowActions">
-            <button data-id="${escapeHtml(x.id)}" onclick="editReturn(Number(this.dataset.id))">${tr('edit_short')}</button>
-            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('returns', Number(this.dataset.id))">${tr('delete_btn')}</button>
-          </td>
+          <td class="rowActions">${rowActions('editReturn', 'returns', x.id)}</td>
         </tr>
       `).join('')}
       ${showMoreRow('returns', moreCount, 5)}
@@ -380,10 +382,7 @@ function writeoffsTable() {
           <td>${escapeHtml(x.qty)}</td>
           <td class="wrapCell">${escapeHtml(x.reason || '')}</td>
           <td>${money(writeoffCost(x))}</td>
-          <td class="rowActions">
-            <button data-id="${escapeHtml(x.id)}" onclick="editWriteoff(Number(this.dataset.id))">${tr('edit_short')}</button>
-            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('writeoffs', Number(this.dataset.id))">${tr('delete_btn')}</button>
-          </td>
+          <td class="rowActions">${rowActions('editWriteoff', 'writeoffs', x.id)}</td>
         </tr>
       `).join('')}
       ${showMoreRow('writeoffs', moreCount, 6)}
@@ -403,10 +402,7 @@ function expensesTable() {
           <td>${escapeHtml(x.category)}</td>
           <td class="wrapCell">${escapeHtml(x.comment || '')}</td>
           <td>${money(x.amount)}</td>
-          <td class="rowActions">
-            <button data-id="${escapeHtml(x.id)}" onclick="editExpense(Number(this.dataset.id))">${tr('edit_short')}</button>
-            <button data-id="${escapeHtml(x.id)}" onclick="deleteRecord('expenses', Number(this.dataset.id))">${tr('delete_btn')}</button>
-          </td>
+          <td class="rowActions">${rowActions('editExpense', 'expenses', x.id)}</td>
         </tr>
       `).join('')}
       ${showMoreRow('expenses', moreCount, 5)}

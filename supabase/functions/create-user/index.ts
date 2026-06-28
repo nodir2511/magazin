@@ -1,15 +1,42 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+// CORS: разрешаем только свои источники. По умолчанию — домены *.vercel.app
+// (прод + preview-деплои) и localhost. Чтобы ограничить точным доменом, задайте
+// секрет функции ALLOWED_ORIGINS (значения через запятую) — тогда разрешён только он.
+const ALLOWED_ORIGINS = (Deno.env.get("ALLOWED_ORIGINS") || "")
+  .split(",").map((s) => s.trim()).filter(Boolean);
+
+function allowedOrigin(origin: string): string | null {
+  if (!origin) return null;
+  if (ALLOWED_ORIGINS.length) return ALLOWED_ORIGINS.includes(origin) ? origin : null;
+  try {
+    const host = new URL(origin).hostname;
+    if (host.endsWith(".vercel.app") || host === "localhost" || host === "127.0.0.1") return origin;
+  } catch { /* invalid origin */ }
+  return null;
+}
+
+function corsHeaders(req: Request): Record<string, string> {
+  const origin = allowedOrigin(req.headers.get("Origin") || "");
+  return {
+    "Access-Control-Allow-Origin": origin || "null",
+    "Vary": "Origin",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
 
 serve(async (req) => {
+  const cors = corsHeaders(req);
+  const json = (body: unknown, status = 200) =>
+    new Response(JSON.stringify(body), {
+      status,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: cors });
   }
 
   if (req.method !== "POST") {
@@ -92,12 +119,3 @@ serve(async (req) => {
   }, 200);
 });
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      ...corsHeaders,
-      "Content-Type": "application/json",
-    },
-  });
-}

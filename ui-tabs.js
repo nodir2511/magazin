@@ -116,11 +116,11 @@ function actionModalMarkup(mode) {
   }
 
   return `
-    <div id="actionModal" class="modal show" onclick="if (event.target === this) closeActionModal()">
+    <div id="actionModal" class="modal show" data-backdrop="closeActionModal">
       <div class="modalPanel" role="dialog" aria-modal="true" aria-labelledby="actionModalTitle">
         <div class="modalHeader">
           <h3 id="actionModalTitle">${actionModalTitle(mode)}</h3>
-          <button class="closeBtn" type="button" onclick="closeActionModal()" aria-label="Close">x</button>
+          <button class="closeBtn" type="button" data-act="closeActionModal" aria-label="Close">x</button>
         </div>
         <div class="modalProduct">
           <div class="photo">${photoMarkup(product.photo)}</div>

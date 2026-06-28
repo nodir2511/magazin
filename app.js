@@ -189,6 +189,10 @@ function emptyDeleted() {
 }
 const DEFAULT_DB = { products: [], arrivals: [], sales: [], returns: [], expenses: [], writeoffs: [], deleted: emptyDeleted() };
 function nowMs() { return Date.now(); }
+// Уникальный числовой id: миллисекунды * 1000 + случайные 0..999. Снижает риск
+// коллизии при оффлайн-создании записей на разных устройствах в одну мс.
+// Остаётся числом (≤ MAX_SAFE_INTEGER) и сортируется по времени создания.
+function newId() { return Date.now() * 1000 + Math.floor(Math.random() * 1000); }
 function collectionKey(collection) { return collection === 'products' ? 'sku' : 'id'; }
 const SUPABASE_TABLE = 'store_state';
 const SUPABASE_CHANGES_TABLE = 'store_changes';
@@ -446,6 +450,7 @@ function escapeHtml(value) {
     return String(value == null ? '' : value)
         .replace(/&/g, '&amp;')
         .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;');
 }
@@ -632,7 +637,7 @@ function showNotice(message, title = 'Уведомление') {
           <h3 id="noticeTitle">${escapeHtml(title)}</h3>
           <p>${escapeHtml(message)}</p>
         </div>
-        <button class="noticeClose" type="button" onclick="closeNotice()">Закрыть</button>
+        <button class="noticeClose" type="button" data-act="closeNotice">Закрыть</button>
       </div>
     `;
 
@@ -672,7 +677,7 @@ function renderDashboard() {
   const lowStock = db.products.filter(p => !p.ignoreLowStock && stockOf(p.sku) <= 1).length;
 
   dashboard.innerHTML = `
-    ${lowStock ? `<button class="lowStockAlert" onclick="openTab('stock')">⚠ ${tr('low_stock')}: ${lowStock}</button>` : ''}
+    ${lowStock ? `<button class="lowStockAlert" data-act="openTab" data-arg="stock">⚠ ${tr('low_stock')}: ${lowStock}</button>` : ''}
     <div class="grid stats">
       <div class="card"><span>${tr('revenue_today')}</span><b>${money(td.revenue)}</b></div>
       <div class="card"><span>${tr('profit_today')}</span><b>${money(td.net)}</b></div>
@@ -680,11 +685,11 @@ function renderDashboard() {
       <div class="card"><span>${tr('sold_today')}</span><b>${td.qty}</b></div>
     </div>
     <div class="grid quick">
-      <button class="big sale" onclick="openTab('sales')">${tr('btn_sale')}</button>
-      <button class="big split arrive" onclick="openTab('arrived')">${tr('btn_arrived')}</button>
-      <button class="big split return" onclick="openTab('returns')">${tr('btn_return')}</button>
-      <button class="smallbtn" onclick="openTab('expenses')">${tr('btn_expense')}</button>
-      <button class="smallbtn" onclick="openTab('stock')">${tr('btn_stock')}</button>
+      <button class="big sale" data-act="openTab" data-arg="sales">${tr('btn_sale')}</button>
+      <button class="big split arrive" data-act="openTab" data-arg="arrived">${tr('btn_arrived')}</button>
+      <button class="big split return" data-act="openTab" data-arg="returns">${tr('btn_return')}</button>
+      <button class="smallbtn" data-act="openTab" data-arg="expenses">${tr('btn_expense')}</button>
+      <button class="smallbtn" data-act="openTab" data-arg="stock">${tr('btn_stock')}</button>
     </div>
     <div class="grid stats">
       <div class="card"><span>${tr('revenue_total')}</span><b>${money(all.revenue)}</b></div>
@@ -696,12 +701,12 @@ function renderDashboard() {
 function renderArrived() {
   arrived.innerHTML = `
     <h2>${tr('tab_arrived')}</h2>
-    <button class="addProductBtn" onclick="openProductModal()">${tr('add_product')}</button>
-    <div id="newProductModal" class="modal ${productModalOpen ? 'show' : ''}" onclick="if (event.target === this) closeProductModal()">
+    <button class="addProductBtn" data-act="openProductModal">${tr('add_product')}</button>
+    <div id="newProductModal" class="modal ${productModalOpen ? 'show' : ''}" data-backdrop="closeProductModal">
       <div class="modalPanel" role="dialog" aria-modal="true" aria-labelledby="newProductTitle">
         <div class="modalHeader">
           <h3 id="newProductTitle">${tr('new_product_title')}</h3>
-          <button class="closeBtn" type="button" onclick="closeProductModal()" aria-label="Close">x</button>
+          <button class="closeBtn" type="button" data-act="closeProductModal" aria-label="Close">x</button>
         </div>
       <summary>${tr('new_product_summary')}</summary>
       <form class="form modalForm" id="newProductForm">
@@ -723,7 +728,7 @@ function renderArrived() {
       </form>
       </div>
     </div>
-    <input id="arriveSearch" class="search" value="${escapeHtml(productSearch.arrive)}" oninput="setSearch('arrive', this.value)" placeholder="${tr('search_placeholder')}">
+    <input id="arriveSearch" class="search" value="${escapeHtml(productSearch.arrive)}" data-input-act="setSearch" data-arg="arrive" placeholder="${tr('search_placeholder')}">
     <div id="arriveProducts" class="productGrid">${productCards('arrive', productSearch.arrive)}</div>
     ${actionModalMarkup('arrive')}
     ${arrivalsTable()}
@@ -752,7 +757,7 @@ function renderArrived() {
       const paid = fd.get('paid') !== null;
       const dateKey = chosenDateKey(f.opDate);
       db.products.push({ sku, name: f.name, category: f.category, photo, salePrice: +f.salePrice || 0, updatedAt: nowMs() });
-      db.arrivals.push({ id: Date.now(), date: displayDateFromKey(dateKey), dateKey, sku, qty: +f.qty, buyPrice: +f.buyPrice, supplier, paid, updatedAt: nowMs() });
+      db.arrivals.push({ id: newId(), date: displayDateFromKey(dateKey), dateKey, sku, qty: +f.qty, buyPrice: +f.buyPrice, supplier, paid, updatedAt: nowMs() });
       productModalOpen = false;
       save('Создание товара', `${f.name}: приход ${+f.qty} шт., закуп ${money(+f.buyPrice)}`);
     } finally {
@@ -775,7 +780,7 @@ function renderArrived() {
     const supplier = String(f.supplier || '').trim();
     const paid = fd.get('paid') !== null;
     const dateKey = chosenDateKey(f.opDate);
-    db.arrivals.push({ id: Date.now(), date: displayDateFromKey(dateKey), dateKey, sku: f.sku, qty: +f.qty, buyPrice: +f.buyPrice, supplier, paid, updatedAt: nowMs() });
+    db.arrivals.push({ id: newId(), date: displayDateFromKey(dateKey), dateKey, sku: f.sku, qty: +f.qty, buyPrice: +f.buyPrice, supplier, paid, updatedAt: nowMs() });
     actionModal = null;
     save('Приход товара', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.buyPrice)}${supplier ? `, ${supplier}` : ''}${paid ? '' : ` (${tr('arrival_debt_label')})`}`);
   };
@@ -784,7 +789,7 @@ function renderArrived() {
 function renderSales() {
   sales.innerHTML = `
     <h2>${tr('tab_sales')}</h2>
-    <input id="saleSearch" class="search" value="${escapeHtml(productSearch.sale)}" oninput="setSearch('sale', this.value)" placeholder="${tr('search_placeholder')}">
+    <input id="saleSearch" class="search" value="${escapeHtml(productSearch.sale)}" data-input-act="setSearch" data-arg="sale" placeholder="${tr('search_placeholder')}">
     <div id="saleProducts" class="productGrid">${productCards('sale', productSearch.sale)}</div>
     ${actionModalMarkup('sale')}
     ${salesTable()}
@@ -807,7 +812,7 @@ function renderSales() {
     }
 
     const saleKey = f.saleDate && f.saleDate <= todayKey() ? f.saleDate : todayKey();
-    db.sales.push({ id: Date.now(), date: displayDateFromKey(saleKey), dateKey: saleKey, sku: f.sku, qty: +f.qty, sellPrice: +f.sellPrice, payment: f.payment, costPrice: avgCost(f.sku), updatedAt: nowMs() });
+    db.sales.push({ id: newId(), date: displayDateFromKey(saleKey), dateKey: saleKey, sku: f.sku, qty: +f.qty, sellPrice: +f.sellPrice, payment: f.payment, costPrice: avgCost(f.sku), updatedAt: nowMs() });
     actionModal = null;
     save('Продажа', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.sellPrice)}, ${f.payment}${saleKey !== todayKey() ? `, дата ${displayDateFromKey(saleKey)}` : ''}`);
     showToast(tr('sold_toast'));
@@ -817,7 +822,7 @@ function renderSales() {
 function renderReturns() {
   returns.innerHTML = `
     <h2>${tr('tab_returns')}</h2>
-    <input id="returnSearch" class="search" value="${escapeHtml(productSearch.return)}" oninput="setSearch('return', this.value)" placeholder="${tr('search_placeholder')}">
+    <input id="returnSearch" class="search" value="${escapeHtml(productSearch.return)}" data-input-act="setSearch" data-arg="return" placeholder="${tr('search_placeholder')}">
     <div id="returnProducts" class="productGrid">${productCards('return', productSearch.return)}</div>
     ${actionModalMarkup('return')}
     ${returnsTable()}
@@ -844,9 +849,9 @@ function renderReturns() {
     const dateKey = chosenDateKey(f.opDate);
     const dateDisplay = displayDateFromKey(dateKey);
 
-    db.returns.push({ id: Date.now(), date: dateDisplay, dateKey, sku: f.sku, qty: +f.qty, refundAmount: +f.refundAmount, costPrice, updatedAt: nowMs() });
+    db.returns.push({ id: newId(), date: dateDisplay, dateKey, sku: f.sku, qty: +f.qty, refundAmount: +f.refundAmount, costPrice, updatedAt: nowMs() });
     if (defective) {
-      db.writeoffs.push({ id: Date.now() + 1, date: dateDisplay, dateKey, sku: f.sku, qty: +f.qty, reason: tr('writeoff_reason_return_defect'), costPrice, updatedAt: nowMs() });
+      db.writeoffs.push({ id: newId(), date: dateDisplay, dateKey, sku: f.sku, qty: +f.qty, reason: tr('writeoff_reason_return_defect'), costPrice, updatedAt: nowMs() });
     }
     actionModal = null;
     save('Возврат', `${productName(f.sku)}: ${+f.qty} шт., ${money(+f.refundAmount)}${defective ? `, ${tr('writeoff_reason_return_defect')}` : ''}`);
@@ -884,7 +889,7 @@ function renderExpenses() {
 
     const comment = String(f.comment || '').trim();
     const dateKey = chosenDateKey(f.opDate);
-    db.expenses.push({ id: Date.now(), date: displayDateFromKey(dateKey), dateKey, category: f.category, amount: +f.amount, comment, updatedAt: nowMs() });
+    db.expenses.push({ id: newId(), date: displayDateFromKey(dateKey), dateKey, category: f.category, amount: +f.amount, comment, updatedAt: nowMs() });
     save('Расход', `${f.category}: ${money(+f.amount)}${comment ? `, ${comment}` : ''}`);
   };
 }
@@ -916,10 +921,10 @@ function stockTableMarkup() {
     <table class="stockTable compactTable">
       <tr>
         <th>${tr('col_photo')}</th>
-        <th class="sortable" onclick="setStockSort('name')">${tr('col_product')}${arrow('name')}</th>
-        <th class="sortable" onclick="setStockSort('category')">${tr('col_category')}${arrow('category')}</th>
-        <th class="sortable" onclick="setStockSort('stock')">${tr('col_stock')}${arrow('stock')}</th>
-        <th class="sortable" onclick="setStockSort('avgCost')">${tr('col_avg_cost')}${arrow('avgCost')}</th>
+        <th class="sortable" data-act="setStockSort" data-arg="name">${tr('col_product')}${arrow('name')}</th>
+        <th class="sortable" data-act="setStockSort" data-arg="category">${tr('col_category')}${arrow('category')}</th>
+        <th class="sortable" data-act="setStockSort" data-arg="stock">${tr('col_stock')}${arrow('stock')}</th>
+        <th class="sortable" data-act="setStockSort" data-arg="avgCost">${tr('col_avg_cost')}${arrow('avgCost')}</th>
         <th></th>
       </tr>
       ${list.map(p => `
@@ -935,10 +940,10 @@ function stockTableMarkup() {
           <td><span class="stockQty ${p.ignoreLowStock ? 'stockMuted' : stockClass(stockOf(p.sku))}">${stockOf(p.sku)}</span></td>
           <td>${money(avgCost(p.sku))}</td>
           <td class="rowActions">
-            <button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="${tr('edit_btn')}" onclick="openProductEditFromButton(this)">⚙</button>
-            ${currentRole === 'admin' ? `<button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="История товара" onclick="openProductHistory(this.dataset.sku)">📜</button>` : ''}
-            ${currentRole === 'admin' ? `<button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="${tr('inventory_btn')}|${tr('writeoff_btn')}" onclick="openStockOpModal(this.dataset.sku)">📋</button>` : ''}
-            ${currentRole === 'admin' ? `<button class="iconBtn danger" data-sku="${escapeHtml(p.sku)}" title="${tr('delete_btn')}" onclick="deleteProduct(this.dataset.sku)">✕</button>` : ''}
+            ${currentRole === 'admin' ? `<button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="${tr('edit_btn')}" data-act="openProductEdit">⚙</button>` : ''}
+            ${currentRole === 'admin' ? `<button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="История товара" data-act="openProductHistory">📜</button>` : ''}
+            ${currentRole === 'admin' ? `<button class="iconBtn" data-sku="${escapeHtml(p.sku)}" title="${tr('inventory_btn')}|${tr('writeoff_btn')}" data-act="openStockOp">📋</button>` : ''}
+            ${currentRole === 'admin' ? `<button class="iconBtn danger" data-sku="${escapeHtml(p.sku)}" title="${tr('delete_btn')}" data-act="deleteProduct">✕</button>` : ''}
           </td>
         </tr>
       `).join('')}
@@ -975,16 +980,16 @@ function renderStock() {
 
   stock.innerHTML = `
     <h2>${tr('tab_stock')}</h2>
-    <input id="stockSearch" class="search" value="${escapeHtml(stockSearch)}" oninput="setStockSearch(this.value)" placeholder="${tr('search_placeholder')}">
+    <input id="stockSearch" class="search" value="${escapeHtml(stockSearch)}" data-input-act="setStockSearch" placeholder="${tr('search_placeholder')}">
     <div id="stockTableWrap">${stockTableMarkup()}</div>
     ${writeoffsTable()}
     ${writeoffModalMarkup()}
     ${editProduct ? `
-      <div id="productEditModal" class="modal show" onclick="if (event.target === this) closeProductEditModal()">
+      <div id="productEditModal" class="modal show" data-backdrop="closeProductEditModal">
         <div class="modalPanel userModalPanel" role="dialog" aria-modal="true" aria-labelledby="productEditTitle">
           <div class="modalHeader">
             <h3 id="productEditTitle">${tr('edit_product_title')}</h3>
-            <button class="closeBtn" type="button" onclick="closeProductEditModal()" aria-label="Close">x</button>
+            <button class="closeBtn" type="button" data-act="closeProductEditModal" aria-label="Close">x</button>
           </div>
           <div class="modalProduct">
             <div class="photo">${photoMarkup(editProduct.photo)}</div>
@@ -1080,7 +1085,7 @@ function renderStock() {
     }
 
     const dateKey = chosenDateKey(fd.get('opDate'));
-    db.writeoffs.push({ id: Date.now(), date: displayDateFromKey(dateKey), dateKey, sku: product.sku, qty, reason: reason || tr('writeoff_reason_other'), costPrice: avgCost(product.sku), updatedAt: nowMs() });
+    db.writeoffs.push({ id: newId(), date: displayDateFromKey(dateKey), dateKey, sku: product.sku, qty, reason: reason || tr('writeoff_reason_other'), costPrice: avgCost(product.sku), updatedAt: nowMs() });
     writeoffModalSku = '';
     save('Списание', `${productName(product.sku)}: ${qty} шт.${reason ? `, ${reason}` : ''}`);
   };
@@ -1091,11 +1096,11 @@ function writeoffModalMarkup() {
   if (!product) return '';
 
   return `
-    <div id="writeoffModal" class="modal show" onclick="if (event.target === this) closeWriteoffModal()">
+    <div id="writeoffModal" class="modal show" data-backdrop="closeWriteoffModal">
       <div class="modalPanel" role="dialog" aria-modal="true" aria-labelledby="writeoffModalTitle">
         <div class="modalHeader">
           <h3 id="writeoffModalTitle">${tr('writeoff_title')}</h3>
-          <button class="closeBtn" type="button" onclick="closeWriteoffModal()" aria-label="Close">x</button>
+          <button class="closeBtn" type="button" data-act="closeWriteoffModal" aria-label="Close">x</button>
         </div>
         <div class="modalProduct">
           <div class="photo">${photoMarkup(product.photo)}</div>
@@ -1160,11 +1165,11 @@ function renderStockOpModal() {
   if (!product) { stockOpModal = null; mount.innerHTML = ''; updateBodyOverflow(); return; }
 
   mount.innerHTML = `
-    <div class="modal show" onclick="if (event.target === this) closeStockOpModal()">
+    <div class="modal show" data-backdrop="closeStockOpModal">
       <div class="modalPanel" role="dialog" aria-modal="true" aria-labelledby="stockOpTitle">
         <div class="modalHeader">
           <h3 id="stockOpTitle">${escapeHtml(product.name)}</h3>
-          <button class="closeBtn" type="button" onclick="closeStockOpModal()" aria-label="Close">x</button>
+          <button class="closeBtn" type="button" data-act="closeStockOpModal" aria-label="Close">x</button>
         </div>
         <div class="modalProduct">
           <div class="photo">${photoMarkup(product.photo)}</div>
@@ -1175,8 +1180,8 @@ function renderStockOpModal() {
           </div>
         </div>
         <div class="stockOpActions">
-          <button class="actionSubmit" onclick="openWriteoffModal('${escapeHtml(stockOpModal.sku)}'); closeStockOpModal();">${tr('writeoff_btn')}</button>
-          <button class="actionSubmit" onclick="runInventoryCheck('${escapeHtml(stockOpModal.sku)}'); closeStockOpModal();">${tr('inventory_btn')}</button>
+          <button class="actionSubmit" data-act="stockWriteoff" data-sku="${escapeHtml(stockOpModal.sku)}">${tr('writeoff_btn')}</button>
+          <button class="actionSubmit" data-act="stockInventory" data-sku="${escapeHtml(stockOpModal.sku)}">${tr('inventory_btn')}</button>
         </div>
       </div>
     </div>`;
@@ -1228,8 +1233,8 @@ function renderProductHistory() {
               <td>${money(a.qty * a.buyPrice)}</td>
               <td>${escapeHtml(a.supplier || '')}</td>
               <td class="rowActions">
-                <button class="iconBtn" onclick="editArrival(${a.id})" title="Редактировать">✏️</button>
-                <button class="iconBtn danger" onclick="deleteArrival(${a.id})" title="Удалить">✕</button>
+                <button class="iconBtn" data-act="editArrival" data-id="${a.id}" title="Редактировать">✏️</button>
+                <button class="iconBtn danger" data-act="deleteArrival" data-id="${a.id}" title="Удалить">✕</button>
               </td>
             </tr>
           `).join('')}
@@ -1251,8 +1256,8 @@ function renderProductHistory() {
               <td>${money(s.qty * s.sellPrice)}</td>
               <td>${escapeHtml(s.payment || '')}</td>
               <td class="rowActions">
-                <button class="iconBtn" onclick="editSale(${s.id})" title="Редактировать">✏️</button>
-                <button class="iconBtn danger" onclick="deleteSale(${s.id})" title="Удалить">✕</button>
+                <button class="iconBtn" data-act="editSale" data-id="${s.id}" title="Редактировать">✏️</button>
+                <button class="iconBtn danger" data-act="deleteSale" data-id="${s.id}" title="Удалить">✕</button>
               </td>
             </tr>
           `).join('')}
@@ -1273,8 +1278,8 @@ function renderProductHistory() {
               <td>${money(r.refundAmount)}</td>
               <td>${r.defective ? 'Брак' : 'Обычный'}</td>
               <td class="rowActions">
-                <button class="iconBtn" onclick="editReturn(${r.id})" title="Редактировать">✏️</button>
-                <button class="iconBtn danger" onclick="deleteReturn(${r.id})" title="Удалить">✕</button>
+                <button class="iconBtn" data-act="editReturn" data-id="${r.id}" title="Редактировать">✏️</button>
+                <button class="iconBtn danger" data-act="deleteReturn" data-id="${r.id}" title="Удалить">✕</button>
               </td>
             </tr>
           `).join('')}
@@ -1294,7 +1299,7 @@ function renderProductHistory() {
               <td>${w.qty}</td>
               <td>${escapeHtml(w.reason || '')}</td>
               <td class="rowActions">
-                <button class="iconBtn danger" onclick="deleteWriteoff(${w.id})" title="Удалить">✕</button>
+                <button class="iconBtn danger" data-act="deleteWriteoff" data-id="${w.id}" title="Удалить">✕</button>
               </td>
             </tr>
           `).join('')}
@@ -1304,11 +1309,11 @@ function renderProductHistory() {
   `;
 
   mount.innerHTML = `
-    <div class="modal show" style="z-index: 18;" onclick="if (event.target === this) closeProductHistory()">
+    <div class="modal show" style="z-index: 18;" data-backdrop="closeProductHistory">
       <div class="modalPanel" role="dialog" aria-modal="true" aria-labelledby="productHistoryTitle" style="max-width: 900px; max-height: 80vh; overflow-y: auto;">
         <div class="modalHeader" style="position: sticky; top: 0; background: white; z-index: 10;">
           <h3 id="productHistoryTitle">История: ${escapeHtml(product.name)} (${escapeHtml(product.sku)})</h3>
-          <button class="closeBtn" type="button" onclick="closeProductHistory()" aria-label="Close">x</button>
+          <button class="closeBtn" type="button" data-act="closeProductHistory" aria-label="Close">x</button>
         </div>
         <div style="padding: 16px;">
           ${historyHTML}
@@ -1360,7 +1365,7 @@ function runInventoryCheck(sku) {
   const diff = current - actual;
   if (!confirm(`${tr('inventory_btn')}: ${productName(sku)} ${current} -> ${actual} (-${diff}). ${tr('writeoff_btn')}?`)) return;
 
-  db.writeoffs.push({ id: Date.now(), date: todayDisplay(), dateKey: todayKey(), sku, qty: diff, reason: tr('writeoff_reason_inventory'), costPrice: avgCost(sku), updatedAt: nowMs() });
+  db.writeoffs.push({ id: newId(), date: todayDisplay(), dateKey: todayKey(), sku, qty: diff, reason: tr('writeoff_reason_inventory'), costPrice: avgCost(sku), updatedAt: nowMs() });
   save('Инвентаризация', `${productName(sku)}: ${current} -> ${actual} (-${diff})`);
 }
 
@@ -1377,25 +1382,25 @@ function renderReport() {
   report.innerHTML = `
     <h2>${tr('tab_report')}</h2>
     <div class="reportActions">
-      <button class="topbtn reportExport" onclick="exportCSV()">${tr('export_csv')}</button>
-      <button class="topbtn reportExport" onclick="window.print()">${tr('print_btn')}</button>
-      <button class="topbtn reportExport" onclick="exportData()">${tr('download_data')}</button>
+      <button class="topbtn reportExport" data-act="exportCSV">${tr('export_csv')}</button>
+      <button class="topbtn reportExport" data-act="print">${tr('print_btn')}</button>
+      <button class="topbtn reportExport" data-act="exportData">${tr('download_data')}</button>
     </div>
     <div class="periods">
-      <button onclick="setPeriod('today')" class="${selectedPeriod === 'today' ? 'active' : ''}">${tr('period_today')}</button>
-      <button onclick="setPeriod('week')" class="${selectedPeriod === 'week' ? 'active' : ''}">${tr('period_week')}</button>
-      <button onclick="setPeriod('month')" class="${selectedPeriod === 'month' ? 'active' : ''}">${tr('period_month')}</button>
-      <button onclick="setPeriod('quarter')" class="${selectedPeriod === 'quarter' ? 'active' : ''}">${tr('period_quarter')}</button>
-      <button onclick="setPeriod('year')" class="${selectedPeriod === 'year' ? 'active' : ''}">${tr('period_year')}</button>
-      <button onclick="setPeriod('all')" class="${selectedPeriod === 'all' ? 'active' : ''}">${tr('period_all')}</button>
-      <button onclick="setPeriod('custom')" class="${selectedPeriod === 'custom' ? 'active' : ''}">${tr('period_custom')}</button>
+      <button data-act="setPeriod" data-arg="today" class="${selectedPeriod === 'today' ? 'active' : ''}">${tr('period_today')}</button>
+      <button data-act="setPeriod" data-arg="week" class="${selectedPeriod === 'week' ? 'active' : ''}">${tr('period_week')}</button>
+      <button data-act="setPeriod" data-arg="month" class="${selectedPeriod === 'month' ? 'active' : ''}">${tr('period_month')}</button>
+      <button data-act="setPeriod" data-arg="quarter" class="${selectedPeriod === 'quarter' ? 'active' : ''}">${tr('period_quarter')}</button>
+      <button data-act="setPeriod" data-arg="year" class="${selectedPeriod === 'year' ? 'active' : ''}">${tr('period_year')}</button>
+      <button data-act="setPeriod" data-arg="all" class="${selectedPeriod === 'all' ? 'active' : ''}">${tr('period_all')}</button>
+      <button data-act="setPeriod" data-arg="custom" class="${selectedPeriod === 'custom' ? 'active' : ''}">${tr('period_custom')}</button>
     </div>
     <div class="${selectedPeriod === 'custom' ? 'form' : 'hidden'}">
       <label class="fieldLabel">${tr('period_from')}
-        <input type="date" id="dateFrom" value="${escapeHtml(customFrom)}" onblur="renderReport()">
+        <input type="date" id="dateFrom" value="${escapeHtml(customFrom)}" data-blur-act="renderReport">
       </label>
       <label class="fieldLabel">${tr('period_to')}
-        <input type="date" id="dateTo" value="${escapeHtml(customTo)}" onblur="renderReport()">
+        <input type="date" id="dateTo" value="${escapeHtml(customTo)}" data-blur-act="renderReport">
       </label>
     </div>
     <div class="grid stats">
@@ -1558,5 +1563,83 @@ function updateBodyOverflow() {
 setInterval(() => {
   if (!document.hidden && currentUser) hydrateProductPhotos();
 }, 5 * 60 * 1000);
+
+// === Делегирование событий ===
+// Inline-обработчиков (onclick/oninput) в разметке нет — это позволяет убрать
+// 'unsafe-inline' из CSP. Каждый интерактивный элемент помечен data-act
+// (клик) или data-input-act (ввод); аргументы — в data-arg / data-id /
+// data-sku / data-collection. Закрытие по фону модалки — через data-backdrop.
+const editById = fn => el => fn(Number(el.dataset.id));
+
+const CLICK_ACTIONS = {
+  // простые вызовы без аргументов
+  closeNotice, openProductModal, closeProductModal, closeProductEditModal,
+  closeWriteoffModal, closeStockOpModal, closeProductHistory, closeEditModal,
+  closeActionModal, closeUserModal, openUserModal, logoutUser,
+  exportCSV, exportData, showRecoveryForm, showLoginForm,
+  print: () => window.print(),
+  refresh: () => refreshFromSupabase(true),
+  // аргумент в data-arg
+  openTab: el => openTab(el.dataset.arg),
+  setLang: el => setLang(el.dataset.arg),
+  setStockSort: el => setStockSort(el.dataset.arg),
+  setPeriod: el => setPeriod(el.dataset.arg),
+  showMore: el => showMore(el.dataset.arg),
+  // товар (data-sku)
+  openProductEdit: el => openProductEditModal(el.dataset.sku),
+  openProductHistory: el => openProductHistory(el.dataset.sku),
+  openStockOp: el => openStockOpModal(el.dataset.sku),
+  deleteProduct: el => deleteProduct(el.dataset.sku),
+  selectProductCard: el => selectProductFromCard(el),
+  stockWriteoff: el => { openWriteoffModal(el.dataset.sku); closeStockOpModal(); },
+  stockInventory: el => { runInventoryCheck(el.dataset.sku); closeStockOpModal(); },
+  // операции (data-id, для истории товара — точечные функции)
+  editArrival: editById(editArrival),
+  editSale: editById(editSale),
+  editReturn: editById(editReturn),
+  editExpense: editById(editExpense),
+  editWriteoff: editById(editWriteoff),
+  deleteArrival: editById(deleteArrival),
+  deleteSale: editById(deleteSale),
+  deleteReturn: editById(deleteReturn),
+  deleteWriteoff: editById(deleteWriteoff),
+  deleteRecord: el => deleteRecord(el.dataset.collection, Number(el.dataset.id)),
+};
+
+const INPUT_ACTIONS = {
+  setSearch: el => setSearch(el.dataset.arg, el.value),
+  setStockSearch: el => setStockSearch(el.value),
+};
+
+const BLUR_ACTIONS = {
+  renderReport: () => renderReport(),
+};
+
+document.addEventListener('click', e => {
+  const actEl = e.target.closest('[data-act]');
+  if (actEl) {
+    const handler = CLICK_ACTIONS[actEl.dataset.act];
+    if (handler) handler(actEl, e);
+    return;
+  }
+  // Клик строго по фону модалки (а не по содержимому) — закрыть её.
+  const backdrop = e.target.dataset && e.target.dataset.backdrop;
+  if (backdrop && CLICK_ACTIONS[backdrop]) CLICK_ACTIONS[backdrop](e.target, e);
+});
+
+document.addEventListener('input', e => {
+  const el = e.target.closest('[data-input-act]');
+  if (!el) return;
+  const handler = INPUT_ACTIONS[el.dataset.inputAct];
+  if (handler) handler(el, e);
+});
+
+// focusout всплывает (в отличие от blur) — подходит для делегирования.
+document.addEventListener('focusout', e => {
+  const el = e.target.closest('[data-blur-act]');
+  if (!el) return;
+  const handler = BLUR_ACTIONS[el.dataset.blurAct];
+  if (handler) handler(el, e);
+});
 
 initApp();

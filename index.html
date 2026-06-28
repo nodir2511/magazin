@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co; object-src 'none'; base-uri 'self'">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co; object-src 'none'; base-uri 'self'">
     <title>Учет магазина</title>
     <link rel="stylesheet" href="styles.css">
 </head>
@@ -21,7 +21,7 @@
             <input name="email" type="email" autocomplete="email" placeholder="Email" required>
             <input name="password" type="password" autocomplete="current-password" placeholder="Пароль" required minlength="6">
             <button type="submit">Войти</button>
-            <button class="authLink" type="button" onclick="showRecoveryForm()">Забыли пароль?</button>
+            <button class="authLink" type="button" data-act="showRecoveryForm">Забыли пароль?</button>
         </form>
 
         <form id="recoveryForm" class="authCard hidden">
@@ -29,7 +29,7 @@
             <p>Укажите email, и Supabase отправит ссылку для смены пароля.</p>
             <input name="email" type="email" autocomplete="email" placeholder="Email" required>
             <button type="submit">Отправить ссылку</button>
-            <button class="authLink" type="button" onclick="showLoginForm()">Назад ко входу</button>
+            <button class="authLink" type="button" data-act="showLoginForm">Назад ко входу</button>
         </form>
 
         <form id="passwordResetForm" class="authCard hidden">
@@ -49,14 +49,14 @@
             </div>
             <div class="headerActions">
                 <div class="langSwitch">
-                    <button id="langRu" class="active" onclick="setLang('ru')">РУ</button>
-                    <button id="langTj" onclick="setLang('tj')">ТЈ</button>
+                    <button id="langRu" class="active" data-act="setLang" data-arg="ru">РУ</button>
+                    <button id="langTj" data-act="setLang" data-arg="tj">ТЈ</button>
                 </div>
                 <span id="userEmail" class="userEmail"></span>
-                <button id="refreshBtn" class="refreshBtn" type="button" onclick="refreshFromSupabase(true)" title="Обновить" aria-label="Обновить">↻</button>
+                <button id="refreshBtn" class="refreshBtn" type="button" data-act="refresh" title="Обновить" aria-label="Обновить">↻</button>
                 <span id="syncStatus" class="syncStatus local">Локально</span>
-                <button id="createUserButton" class="userCreateBtn hidden" type="button" onclick="openUserModal()">Создать пользователя</button>
-                <button class="logoutBtn" type="button" onclick="logoutUser()">Выйти</button>
+                <button id="createUserButton" class="userCreateBtn hidden" type="button" data-act="openUserModal">Создать пользователя</button>
+                <button class="logoutBtn" type="button" data-act="logoutUser">Выйти</button>
             </div>
         </header>
 
@@ -73,11 +73,11 @@
             <section id="history" class="page"></section>
         </main>
 
-        <div id="userModal" class="modal" onclick="if (event.target === this) closeUserModal()">
+        <div id="userModal" class="modal" data-backdrop="closeUserModal">
             <div class="modalPanel userModalPanel" role="dialog" aria-modal="true" aria-labelledby="createUserTitle">
                 <div class="modalHeader">
                     <h3 id="createUserTitle">Создать пользователя</h3>
-                    <button class="closeBtn" type="button" onclick="closeUserModal()" aria-label="Close">x</button>
+                    <button class="closeBtn" type="button" data-act="closeUserModal" aria-label="Close">x</button>
                 </div>
                 <form id="createUserForm" class="form modalForm userForm">
                     <input name="email" type="email" autocomplete="off" placeholder="Email нового пользователя" required>

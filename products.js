@@ -289,7 +289,7 @@ function productCards(mode, query = '') {
             ].join(' ').toLowerCase().includes(query);
         })
         .map(p => `
-      <div class="product" data-mode="${escapeHtml(mode)}" data-sku="${escapeHtml(p.sku)}" onclick="selectProductFromCard(this)">
+      <div class="product" data-mode="${escapeHtml(mode)}" data-sku="${escapeHtml(p.sku)}" data-act="selectProductCard">
         <div class="photo">${photoMarkup(p.photo)}</div>
         <h4>${escapeHtml(p.name)}</h4>
         <div class="productCode">${escapeHtml(p.sku)}</div>
@@ -328,6 +328,7 @@ function closeProductModal() {
 }
 
 function openProductEditModal(sku) {
+  if (currentRole !== 'admin') { showNotice('Редактировать товар может только админ.'); return; }
   const product = db.products.find(p => p.sku === sku);
   if (!product) return;
 
@@ -343,10 +344,6 @@ function closeProductEditModal() {
   productEditSku = '';
   renderStock();
   hydrateProductPhotos();
-}
-
-function openProductEditFromButton(button) {
-  openProductEditModal(button.dataset.sku || '');
 }
 
 function productName(sku) {
